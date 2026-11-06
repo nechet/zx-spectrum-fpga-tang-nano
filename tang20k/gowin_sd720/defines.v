@@ -1,6 +1,6 @@
 // Macros for the Gowin build of the Tang Nano 20K port.  Listed first so they
 // apply to every later file: the project compiles as a single unit
-// (Multiple_File_Compilation_Unit).
+// (Multiple_File_Compilation_Unit), as the 9K's Gowin project does.
 `define SYNTHESIS
 `define GW2A
 `define RAM48                  // upper 32K of RAM fitted: a 48K Spectrum

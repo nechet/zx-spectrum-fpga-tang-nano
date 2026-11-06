@@ -3,13 +3,14 @@
 The board netlist, generated from the Krasnodar-48's EasyEDA schematic by
 `../Krasnodar-48-fpga`, with the memory chips replaced by FPGA block RAM,
 plus the top level that clocks it and puts it on HDMI. The Tang Nano 20K
-builds in `../tang20k` use these files.
+builds in `../tang20k` and the Tang Nano 9K builds in `../tang9k` use
+these files.
 
 | | |
 |---|---|
 | `top.v` | the top level: clocks, reset, the board, the keyboard and SD bridge hook-ups, video (scan doubler, or `../tang20k/scan_tripler.v` with `HDMI_720P`), HDMI output, LEDs |
 | `gen/` | **generated**: the board netlist with its shared data bus rewritten as explicit logic, and the part models it needs. Do not edit; `make` regenerates it |
-| `fpga_memory.v` | the memory chips as block RAM: the 27C128 ROM (or the 32K two-bank ROM), the 16K x 1 video DRAMs, and with `RAM48` the upper 32 KB |
+| `fpga_memory.v` | the memory chips as block RAM: the 27C128 ROM (or the 32K two-bank ROM), the 16K x 1 video DRAMs, and with `RAM48` the upper 32 KB (with `RAM_PSRAM` the upper 32 KB go to the 9K's PSRAM instead, `../tang9k/psram_bank.v`) |
 | `scan_doubler.v` | 576p video: each 896-clock board line shown twice at 27 MHz, locked to the board's frame |
 | `hdmi_out.v`, `third_party/apicula/` | TMDS encoding, 10:1 serialisers and LVDS outputs (video only; with sound, `../tang20k/hdmi_audio_out.sv` takes its place) |
 | `pll_135.v` | 27 -> 135 MHz for the 576p builds |
@@ -22,7 +23,8 @@ Every chip of the schematic is a Verilog module (`../Krasnodar-48-fpga/Verilog/l
 synthesisable versions in `.../synth`), wired exactly as on the board. Three
 things make that work on an FPGA:
 
-* **One clock.** All the board's flip-flops run on `clk_sys` (135 MHz) and
+* **One clock.** All the board's flip-flops run on `clk_sys` (135 MHz; 81
+  MHz on the Tang Nano 9K, `BOARD_81`) and
   act on edges of the board's own 13.5 MHz clock, which they see as data
   (a clock enable). A chip's clock pin becomes an edge detector, not a
   clock net, so the tools can time everything.
@@ -32,7 +34,7 @@ things make that work on an FPGA:
   explicit multiplexers, driven by each chip's enable.
 * **The DRAM timing.** The board makes /CAS and the address multiplexer's
   switch-over from /RAS through RC delay lines (about 8 and 20 ns). They are
-  counted out in 135 MHz clocks.
+  counted out in `clk_sys` ticks.
 
 The CPU is the TV80 core (`../Krasnodar-48-fpga/Verilog/third_party/tv80`)
 in the Z80's socket, stepping on the board clock's edges.

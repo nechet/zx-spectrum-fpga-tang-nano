@@ -17,12 +17,25 @@ module tb_sdmenu;
   wire tmds_clk_p, tmds_clk_n; wire [2:0] tmds_d_p, tmds_d_n;
   reg  ps2_clk = 1'b1, ps2_data = 1'b1;
   wire sd_clk, sd_cmd, sd_dat3, sd_dat0;
+`ifdef RAM_PSRAM
+  wire psram_ck, psram_ck_n, psram_cs_n, psram_reset_n, psram_rwds; wire [7:0] psram_dq;
+`endif
   top #(.WITH_HDMI(0)) dut (.clk(clk), .rst_i(rst_i), .led(led),
            .tmds_clk_p(tmds_clk_p), .tmds_clk_n(tmds_clk_n),
            .tmds_d_p(tmds_d_p), .tmds_d_n(tmds_d_n),
            .ps2_clk(ps2_clk), .ps2_data(ps2_data),
            .sd_clk(sd_clk), .sd_cmd(sd_cmd), .sd_dat3(sd_dat3), .sd_dat0(sd_dat0),
+`ifdef RAM_PSRAM
+           .psram_ck(psram_ck), .psram_ck_n(psram_ck_n), .psram_cs_n(psram_cs_n),
+           .psram_reset_n(psram_reset_n), .psram_rwds(psram_rwds), .psram_dq(psram_dq),
+`endif
            .nmi_btn(1'b0));
+`ifdef RAM_PSRAM
+`include "psram_tb_die.vh"
+`endif
+`ifdef SCOREBOARD
+`include "upper_scoreboard.vh"
+`endif
 `ifndef SD_IMAGE
 `define SD_IMAGE "../tang20k/tb_fat_image.hex"
 `define SD_SECTORS 512
@@ -282,10 +295,24 @@ module tb_sdmenu;
         #250_000_000;
         $display("  %0d ms: last M1 %h, bank %b, border %b", $time / 1_000_000, game_pc, dut.rom_bank, grb);
       end
+`ifdef GAME_RUN_MS
+      // then let the game run (title screen, music, demo) for GAME_RUN_MS
+      if (game_ran) begin : run
+        integer t1; t1 = $time / 1_000_000;
+        while ($time / 1_000_000 < t1 + `GAME_RUN_MS) begin
+          #250_000_000;
+          $display("  %0d ms: last M1 %h, border %b", $time / 1_000_000, game_pc, grb);
+        end
+      end
+`endif
       show_screen;
       if (game_ran) $display("PASS  game entered at %h, %0d ms", `GAME_PC, $time / 1_000_000);
       else begin $display("FAIL  game not entered"); fails = fails + 1; end
     end
+`ifdef SCOREBOARD
+    if (sb_bad == 0) $display("PASS  scoreboard: %0d upper reads, all as written", sb_rd);
+    else begin $display("FAIL  scoreboard: %0d of %0d upper reads wrong", sb_bad, sb_rd); fails = fails + 1; end
+`endif
     if (fails == 0) $display("ALL PASSED"); else $display("%0d FAILED", fails);
     $finish;
 `endif
@@ -296,7 +323,16 @@ module tb_sdmenu;
     if (fails == 0) $display("ALL PASSED"); else $display("%0d FAILED", fails);
     $finish;
 `endif
+`ifdef WAIT_BASIC
+    // a 16K machine (tb_9k720.sh): F12 only once BASIC is up, as a person
+    // would.  Straight after reset the Z80's SP is FFFF, where a 16K machine
+    // has no RAM, so the menu's pushes would be lost (a 48K one has RAM there)
+    wait_long(23, {8'h7F, " 1982 Sinclair Research Ltd    "}, 3000);
+    expect_row(23, {8'h7F, " 1982 Sinclair Research Ltd    "});
+    $display("BASIC ready at %0d ms", $time / 1_000_000);
+`else
     #2_000_000;
+`endif
     $display("F12 at %0d ms", $time / 1_000_000);
     send_byte(8'h07); #30_000_000; send_byte(8'hF0); send_byte(8'h07);   // F12 -> NMI -> menu
 `ifdef PAGE_TEST

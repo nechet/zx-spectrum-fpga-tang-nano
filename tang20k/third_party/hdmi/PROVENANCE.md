@@ -22,9 +22,9 @@ its place and is driven by the scan doubler's counters.
 
 ## Local changes
 
-Every change is marked with an `// iverilog:` comment. They exist only because
+Most changes are marked with an `// iverilog:` comment. They exist only because
 Icarus Verilog rejects some SystemVerilog array operations. They don't change
-any behaviour.
+any behaviour. The `// timing:` changes are described at the end of this list.
 
 - `packet_picker.sv`
   - The 2-D `headers`/`subs` table indexed by packet type is replaced with one
@@ -33,9 +33,21 @@ any behaviour.
     NULL packet (all zeros), so the `MODEL_TECH` NULL entries were removed.
   - The copies into `audio_sample_word_transfer`, the transfer mux and the
     load into `audio_sample_word_packet` are written element by element.
+  - The `valid_bit` and `user_data_bit` ports get a named all-zero array
+    instead of an assignment pattern (Icarus Verilog 12).
 - `packet_assembler.sv`
-  - `parity[3:0] <= parity_next_next` and the `'{...}` resets are written
-    element by element.
+  - `parity[3:0] <= parity_next_next`, the `'{...}` resets and the initial
+    value are written element by element.
+
+Two changes are for timing, marked `// timing:`. `hdmi_audio_out.sv` chooses
+each packet one pixel early and registers the choice, so the picker's
+selection and the assembler's ECC each get a full pixel clock (the Tang Nano
+9K at 81 MHz needs it). The picker's IEC 60958 frame counter therefore
+advances when an audio packet is replaced, not on its pixel 31: still once
+per audio packet. The assembler takes its header and subpackets
+pre-shifted, from shift registers in `hdmi_audio_out.sv`, and reads the
+bottom bits rather than indexing them by its counter; only the ECC bits at
+the end of each packet are still indexed (a 4:1 choice).
 
 Simulation also needs `-DMODEL_TECH`, which makes upstream's don't-care bytes
 0 instead of X (see `../../tb_hdmi_audio.sh`).

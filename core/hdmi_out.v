@@ -5,7 +5,7 @@
 `default_nettype none
 
 module hdmi_out #(
-    parameter TRUE_LVDS = 0      // 1: true LVDS (the Tang Nano 20K)  0: emulated (simulation stubs)
+    parameter TRUE_LVDS = 0      // 0: 9K (emulated, ELVDS)  1: 20K (true LVDS)
 ) (
     input  wire        clk_pixel,
     input  wire        clk_x5,
@@ -70,9 +70,9 @@ module hdmi_out #(
       .D5 (1'b0), .D6 (1'b0), .D7 (1'b0), .D8 (1'b0), .D9 (1'b0),
       .PCLK (clk_pixel), .FCLK (clk_x5), .RESET (reset));
 
-  // The Tang Nano 20K's HDMI pins are real LVDS pairs (LVDS25): TLVDS_OBUF.
-  // ELVDS_OBUF (emulated LVDS) has the same ports; it is what the simulation
-  // stubs model, so the choice is a parameter.
+  // The 9K has no true LVDS on these pins and emulates it (LVDS25E), so it
+  // needs ELVDS_OBUF; the 20K has real LVDS pairs (LVDS25) and needs
+  // TLVDS_OBUF.  Same ports either way, so the choice is a parameter.
   generate
     if (TRUE_LVDS) begin : tlvds
       TLVDS_OBUF tmds_buf [3:0] (

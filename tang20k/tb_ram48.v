@@ -9,9 +9,19 @@ module tb_ram48;
   wire [5:0] led;
   wire tmds_clk_p, tmds_clk_n; wire [2:0] tmds_d_p, tmds_d_n;
   always #18.518518 clk = ~clk;
+`ifdef RAM_PSRAM
+  wire psram_ck, psram_ck_n, psram_cs_n, psram_reset_n, psram_rwds; wire [7:0] psram_dq;
+`endif
   top #(.WITH_HDMI(0)) dut (.clk(clk), .rst_i(rst_i), .led(led),
            .tmds_clk_p(tmds_clk_p), .tmds_clk_n(tmds_clk_n),
+`ifdef RAM_PSRAM
+           .psram_ck(psram_ck), .psram_ck_n(psram_ck_n), .psram_cs_n(psram_cs_n),
+           .psram_reset_n(psram_reset_n), .psram_rwds(psram_rwds), .psram_dq(psram_dq),
+`endif
            .tmds_d_p(tmds_d_p), .tmds_d_n(tmds_d_n));
+`ifdef RAM_PSRAM
+`include "psram_tb_die.vh"
+`endif
 
   wire [3:0] bd = dut.kras.U_D61.q;        // {VBD1, tape, VBD2, VBD0}
   wire [2:0] grb = {bd[1], bd[3], bd[0]};  // green, red, blue

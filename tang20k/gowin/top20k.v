@@ -3,9 +3,9 @@
 // Why a wrapper: the open-source flow (yosys + nextpnr + apicula) sets top's
 // parameters with chparam, but on the GW2A-18C apicula has an unresolved
 // placement-dependent miscompute bug (YosysHQ/apicula#541) -- and that is what
-// left this board's video timing dead on the 20K while it ran in simulation.
-// Gowin's own tools avoid it; this wrapper just fixes the two board-specific
-// parameters without touching top.v.
+// left this board's video timing dead on the 20K while it runs in simulation
+// and on the 9K.  Gowin's own tools avoid it; this wrapper just fixes the two
+// board-specific parameters without touching top.v.
 `default_nettype none
 module top20k (
     input  wire       clk,          // 27 MHz, pin 4

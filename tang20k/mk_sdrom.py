@@ -17,6 +17,12 @@ is left untouched) and assembles two files with z80asm:
 
 MAXF=n in the environment builds the menu with n games per page instead of
 19, so a small test card can exercise the paging (tb_sdpage.sh).
+
+SMALL_BANK1=1 writes the images ROM_BANK1_SMALL loads (the Tang Nano 9K,
+short of block RAM): OUT.hex holds bank 0 alone, and OUT_1lo.hex and
+OUT_1hi.hex the only two parts of bank 1 the menu uses, 0000-0FFF (its code)
+and 3800-3FFF (its doorways and the font).  The rest of bank 1 must be
+empty; that is checked.
 """
 import re, subprocess, sys, os, tempfile
 
@@ -79,10 +85,25 @@ bank1 = [0xFF] * 16384
 bank1[:len(b1)] = list(b1)
 bank1[FONT:0x4000] = rom[FONT:0x4000]
 
-with open(dst, 'w') as f:
-    f.write('// %s + sdrom0.asm (bank 0) + sdmenu.asm (bank 1), by mk_sdrom.py\n'
-            % os.path.relpath(src, here))
-    f.write(''.join('%02X\n' % b for b in bank0 + bank1))
+# ROM_BANK1_SMALL keeps bank 1's windows W1LO and W1HI only (fpga_memory.v)
+W1LO, W1HI = (0x0000, 0x1000), (0x3800, 0x4000)
+small = os.environ.get('SMALL_BANK1') == '1'
+if small:
+    if any(b != 0xFF for b in bank1[W1LO[1]:W1HI[0]]):
+        sys.exit('bank 1 has code outside %04X-%04X and %04X-%04X: too big for ROM_BANK1_SMALL'
+                 % (W1LO[0], W1LO[1] - 1, W1HI[0], W1HI[1] - 1))
+    base = dst[:-4] if dst.endswith('.hex') else dst
+    files = [(dst, bank0, 'bank 0 (SMALL_BANK1)'),
+             (base + '_1lo.hex', bank1[W1LO[0]:W1LO[1]], 'bank 1, %04X-%04X' % (W1LO[0], W1LO[1] - 1)),
+             (base + '_1hi.hex', bank1[W1HI[0]:W1HI[1]], 'bank 1, %04X-%04X' % (W1HI[0], W1HI[1] - 1))]
+else:
+    files = [(dst, bank0 + bank1, 'banks 0 and 1')]
+
+for name, image, what in files:
+    with open(name, 'w') as f:
+        f.write('// %s + sdrom0.asm (bank 0) + sdmenu.asm (bank 1): %s, by mk_sdrom.py\n'
+                % (os.path.relpath(src, here), what))
+        f.write(''.join('%02X\n' % b for b in image))
 menu_end = lab1.get('menu_end', len(b1))
 print('%s: bank 0 doorways %04X-%04X; bank 1 code %d bytes (%d free before the doorways)' %
       (os.path.basename(dst), FREE, FREE + len(b0) - 1, menu_end - 0x100, lab1['B_NMI'] - menu_end))

@@ -59,6 +59,10 @@ module pll_405 (
   defparam rpll_inst.DYN_SDIV_SEL = 2;
   defparam rpll_inst.CLKOUTD_SRC = "CLKOUT";
   defparam rpll_inst.CLKOUTD3_SRC = "CLKOUT";
-  defparam rpll_inst.DEVICE = "GW2AR-18C";
+`ifdef GW2A
+  defparam rpll_inst.DEVICE = "GW2AR-18C";  // Tang Nano 20K
+`else
+  defparam rpll_inst.DEVICE = "GW1NR-9C";   // Tang Nano 9K: VCO 400-1200 MHz, out <= 600 MHz
+`endif
 endmodule
 `default_nettype wire

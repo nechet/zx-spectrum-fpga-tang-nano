@@ -11,3 +11,7 @@ simhdmiaudio
 tb_game_image.hex
 frame720.ppm
 simtripler
+spectrum48_sd9k*.hex
+frame9k.ppm
+frame9k48.ppm
+simpsram

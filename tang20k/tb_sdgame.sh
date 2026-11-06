@@ -20,7 +20,7 @@ H=$L/third_party/hdmi
 IV=${IVERILOG:-iverilog}
 VVP=${VVP:-vvp}
 make gen/krasnodar48_synth.v >/dev/null
-$IV -g2012 -DPS2_KBD -DSD_LOADER -DRAM48 -DROM_BANKS -DTAP_TEST -DGAME_TAP -DHDMI_AUDIO -DMODEL_TECH \
+$IV -g2012 -DPS2_KBD -DSD_LOADER -DRAM48 -DROM_BANKS -DTAP_TEST -DGAME_TAP -DHDMI_AUDIO -DMODEL_TECH $DEFS \
     "-DGAME_PC=16'h$GAME_PC" "-DSD_IMAGE=\"$L/tb_game_image.hex\"" -DSD_SECTORS=512 \
     -o simsdgame $L/tb_sdmenu.v \
     $L/ps2_keyboard.v $L/ps2_rx.v $L/ps2_zx_keymap.v $L/zx_matrix.v \

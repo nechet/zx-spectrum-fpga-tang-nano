@@ -1,0 +1,49 @@
+// Tang Nano 9K (GW1NR-LV9QN88PC6/I5) constraints in Gowin's dialect.  Pins
+// from Sipeed's schematic (Tang_Nano_9k_3672) and its hdmi example.
+// Banks 1 and 2 are 3.3 V; bank 3 (buttons, LEDs) is 1.8 V.
+IO_LOC  "clk" 52;
+IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+// Buttons: 10k pull-ups to 1.8 V, pressed = low.
+IO_LOC  "rst_s1" 3;
+IO_PORT "rst_s1" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+IO_LOC  "menu_s2" 4;
+IO_PORT "menu_s2" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+// LEDs, active low.
+IO_LOC  "led[0]" 10;
+IO_PORT "led[0]" IO_TYPE=LVCMOS18 PULL_MODE=UP DRIVE=8;
+IO_LOC  "led[1]" 11;
+IO_PORT "led[1]" IO_TYPE=LVCMOS18 PULL_MODE=UP DRIVE=8;
+IO_LOC  "led[2]" 13;
+IO_PORT "led[2]" IO_TYPE=LVCMOS18 PULL_MODE=UP DRIVE=8;
+IO_LOC  "led[3]" 14;
+IO_PORT "led[3]" IO_TYPE=LVCMOS18 PULL_MODE=UP DRIVE=8;
+IO_LOC  "led[4]" 15;
+IO_PORT "led[4]" IO_TYPE=LVCMOS18 PULL_MODE=UP DRIVE=8;
+IO_LOC  "led[5]" 16;
+IO_PORT "led[5]" IO_TYPE=LVCMOS18 PULL_MODE=UP DRIVE=8;
+// HDMI: emulated LVDS pairs, both pins named on the P port, and no IO_TYPE:
+// ELVDS_OBUF sets it, and an explicit LVDS25E clashes with bank 1's 3.3 V
+// (the clock input) -- Sipeed's hdmi example does the same.
+IO_LOC  "tmds_clk_p" 69,68;
+IO_PORT "tmds_clk_p" PULL_MODE=NONE DRIVE=8;
+IO_LOC  "tmds_d_p[0]" 71,70;
+IO_PORT "tmds_d_p[0]" PULL_MODE=NONE DRIVE=8;
+IO_LOC  "tmds_d_p[1]" 73,72;
+IO_PORT "tmds_d_p[1]" PULL_MODE=NONE DRIVE=8;
+IO_LOC  "tmds_d_p[2]" 75,74;
+IO_PORT "tmds_d_p[2]" PULL_MODE=NONE DRIVE=8;
+// The microSD slot, SPI mode (10k pull-ups on the board).
+IO_LOC  "sd_clk" 36;
+IO_PORT "sd_clk" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC  "sd_cmd" 37;
+IO_PORT "sd_cmd" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC  "sd_dat3" 38;
+IO_PORT "sd_dat3" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC  "sd_dat0" 39;
+IO_PORT "sd_dat0" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+// PS/2 keyboard, 3.3 V, receive only: header pins 31 (CLK) and 32 (DATA).
+// Pull-ups keep the lines idle-high if nothing is connected.
+IO_LOC  "ps2_clk" 31;
+IO_PORT "ps2_clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC  "ps2_data" 32;
+IO_PORT "ps2_data" IO_TYPE=LVCMOS33 PULL_MODE=UP;

@@ -398,8 +398,15 @@ module cd4013 (input p3, p4, p5, p6, p8, p9, p10, p11,
   assign p12 = ~o2;
 endmodule
 
-module cd4015 #(parameter integer TPLH = 40,  // clk_sys ticks: rising outputs, ~300 ns
-                parameter integer TPHL = 33)  // falling outputs, ~245 ns
+`ifndef SYS_MHZ
+`define SYS_MHZ 135         // clk_sys in MHz: every tick count below derives from it
+`endif
+// clk_sys ticks: 40 and 33 at 135 MHz, 24 and 18 at 81 MHz.  TPLH scales with
+// the clock (it only has to outlast a fetch); TPHL does not -- see "opening"
+// below: it is set by where the N_55 edge falls, measured, not by scaling.
+module cd4015 #(parameter integer TPLH = (40 * `SYS_MHZ + 67) / 135,  // rising outputs, ~300 ns
+                parameter integer TPHL = (`SYS_MHZ == 81) ? 18 :      // falling outputs, ~220-245 ns
+                                         (33 * `SYS_MHZ + 67) / 135)
               (input p1, p7, p6, p9, p15, p14,
                output p5, p4, p3, p2, p13, p12, p11, p10,
                input p8, p16,
@@ -434,6 +441,14 @@ module cd4015 #(parameter integer TPLH = 40,  // clk_sys ticks: rising outputs, 
   //     CPU's /MREQ can fall the same instant and the arbitration misses it;
   //     the CPU write then meets a video fetch (after the reset button, the
   //     memory test failed).  Needs the *falling* output delay <= 34.
+  //     That limit is in ticks, not nanoseconds: the N_55 edge trails the
+  //     window's clock edge by a fixed number of flip-flop stages, one clk_sys
+  //     tick each, so it does not move in proportion to the clock.  At 81 MHz
+  //     (Tang Nano 9K) the scaled 20 opened the window one tick *after* the
+  //     N_55 edge: once in ~17000 writes, the ROM's memory test lost one and
+  //     the machine rebooted forever.  18 opens it one tick (12 ns) before
+  //     the edge, as 33 does at 135 MHz (two ticks, 15 ns).  Check with the
+  //     window-edge histogram (LEARNING.md 7.25) after any clock change.
   //   * opening, again: the video sequencer (D17) samples the window on F3_5M;
   //     at 53 it missed its edge and the fetches slid into the CPU's slots.
   // The window opens when the outputs fall and closes when one rises, and

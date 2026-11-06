@@ -1,20 +1,16 @@
 // -----------------------------------------------------------------------------
-// The Krasnodar-48 board netlist on the Tang Nano 20K, on HDMI.
+// Tang Nano 9K: the Krasnodar-48 board netlist, as a 16K Spectrum, on HDMI.
 //
 // The board is transcribed from the EasyEDA schematic.  Its raster is 896
-// clocks a line and 312 lines a frame whatever it is clocked at.  Two
-// video back ends, chosen at build time:
+// clocks a line and 312 lines a frame whatever it is clocked at, so a scan
+// doubler turns that into 896 x 624 at the crystal's own 27 MHz.
 //
-//   576p (default)  scan_doubler.v: 896 x 624 at 27 MHz, two lines per
-//                   board line
-//       27 MHz crystal -+- /2 -> 13.5 MHz, the board's master clock
-//                       +- PLL x5 -> 135 MHz: the board's logic and the TMDS
-//                          serialisers; /5 of it is the 27 MHz pixel clock
-//   720p (HDMI_720P) ../tang20k/scan_tripler.v: 1792 x 936 at 81 MHz, three
-//                   lines per board line; one PLL makes every clock (below)
+//   27 MHz crystal -+- pixel clock
+//                   +- /2 -> 13.5 MHz, the board's master clock
+//                   +- PLL x5 -> 135 MHz, the TMDS serialisers
 //
-// Either way one output line is an exact fraction of an input line, so the
-// two rasters are locked and the picture cannot tear.
+// One output line is exactly half an input line because 27 is exactly twice
+// 13.5, so the two rasters are locked and the picture cannot tear.
 //
 // The board wants 14 MHz, which would give the Spectrum's exact 15.625 kHz and
 // 50.08 Hz and let the output be standard 576p50.  But 14 MHz needs a second
@@ -37,21 +33,32 @@
 // -----------------------------------------------------------------------------
 `default_nettype none
 
+// clk_sys (clk_x5 below) in MHz: 135, or 81 with BOARD_81 (the Tang Nano 9K,
+// whose slower logic cannot run the board at 135 -- see that branch below).
+// The board's part models count their delays in ticks of it (lib_sync.v,
+// synth_parts.v) and read the same macro.
+`ifdef BOARD_81
+`define SYS_MHZ 81
+`endif
+`ifndef SYS_MHZ
+`define SYS_MHZ 135
+`endif
+
 module top #(
     // The TMDS encoders and serialisers cost a lot of simulation time and
     // contribute nothing to the picture data, so the frame renderer leaves
     // them out.  Always 1 for anything that gets built.
     parameter WITH_HDMI = 1,
-    // 1: true LVDS output buffers (TLVDS_OBUF, LVDS25 pairs), as the Tang
-    //    Nano 20K's HDMI pins have -- the builds set this (../tang20k/*/top20k.v)
-    // 0: emulated LVDS (ELVDS_OBUF), what the simulation stubs provide
+    // 0: Tang Nano 9K, emulated LVDS (ELVDS_OBUF, LVDS25E pins)
+    // 1: Tang Nano 20K, true LVDS (TLVDS_OBUF, LVDS25 pairs)
     parameter TRUE_LVDS = 0,
-    // The Tang Nano 20K's reset button on pin 88 idles LOW (Sipeed's own
-    // constraints pull it down), so the builds set 0: an active-low reset
-    // there would hold the design in reset for ever.  The testbenches use 1.
+    // The 9K's S2 button idles HIGH (internal pull-up) so reset is active
+    // low.  The 20K's button on pin 88 idles LOW -- Sipeed's own constraints
+    // pull it down -- so an active-low reset there holds the design in reset
+    // for ever and nothing runs at all.
     parameter RST_ACTIVE_LOW = 1
 ) (
-    input  wire       clk,          // 27 MHz, pin 4
+    input  wire       clk,          // 27 MHz, pin 52
     input  wire       rst_i,        // button S2, active low
     output wire [5:0] led,          // active low
     output wire       tmds_clk_p,
@@ -71,6 +78,17 @@ module top #(
     input  wire       sd_dat0,
     input  wire       nmi_btn,      // loader menu button, active high
 `endif
+`ifdef RAM_PSRAM
+    // The upper 32 KB in the 9K's on-package PSRAM (die 0), through
+    // ../tang20k/psram_bank.v; top9k.v names them as Gowin wants.
+    output wire       psram_dbg_tx,     // serial out of a PSRAM_DIAG build (pin 17), else high
+    output wire       psram_ck,
+    output wire       psram_ck_n,
+    output wire       psram_cs_n,
+    output wire       psram_reset_n,
+    inout  wire       psram_rwds,
+    inout  wire [7:0] psram_dq,
+`endif
     output wire [2:0] tmds_d_n);
 
   // --- clocks ----------------------------------------------------------------
@@ -83,7 +101,7 @@ module top #(
   pll_28  pll_pix  (.clkin(clk), .clkout(clk_pixel), .lock(pll28_lock));
   pll_140 pll_tmds (.clkin(clk_pixel), .clkout(clk_x5), .clkout_div10(clk14),
                     .lock(pll140_lock));
-  // named for the 135 MHz PLL of the default build: drives LED1 and the serialiser reset
+  // name kept from the 9K: it drives LED1 and the serialiser reset
   wire pll135_lock = pll28_lock & pll140_lock;
 `elsif HDMI_720P
   // Tang Nano 20K, 1280x720 (../tang20k/scan_tripler.v): one PLL
@@ -92,12 +110,21 @@ module top #(
   // board's 135 MHz, and the board's 13.5 MHz is that divided by 10 (f14
   // below).  81 is exactly 6 x 13.5, so three output lines are exactly one
   // board line.
-  wire clk_ser, clk_x5, pll135_lock;
-  pll_405 pll_all (.clkin(clk), .clkout(clk_ser), .clkout_d3(clk_x5), .lock(pll135_lock));
+  wire clk_ser, clk_d3, pll135_lock;
+  pll_405 pll_all (.clkin(clk), .clkout(clk_ser), .clkout_d3(clk_d3), .lock(pll135_lock));
   wire clk_pixel;
   CLKDIV pix_div (.CLKOUT(clk_pixel), .HCLKIN(clk_ser), .RESETN(pll135_lock), .CALIB(1'b0));
   defparam pix_div.DIV_MODE = "5";
   defparam pix_div.GSREN    = "false";
+`ifdef BOARD_81
+  // Tang Nano 9K: the board runs on the pixel clock itself, 81 MHz = 6 x its
+  // 13.5 MHz, so the whole design has one clock.  Its board-logic paths need
+  // ~14 ns, more than 135 MHz's 7.4 on this slower chip; the part models'
+  // delays rescale with SYS_MHZ.
+  wire clk_x5 = clk_pixel;
+`else
+  wire clk_x5 = clk_d3;
+`endif
 `else
   wire clk_x5, pll135_lock;
   pll_135 pll_tmds (.clkin(clk), .clkout(clk_x5), .lock(pll135_lock));
@@ -138,9 +165,33 @@ module top #(
   // phase to the crystal's: bring the reset across with two flip-flops.
   reg [1:0] res_s = 2'b00;
   always @(posedge clk_x5) res_s <= {res_s[0], res_n};
-  wire res_n_sys = res_s[1];
+  wire res_n_sys_raw = res_s[1];
 `else
-  wire res_n_sys = res_n;
+  wire res_n_sys_raw = res_n;
+`endif
+
+  // --- the upper 32 KB in PSRAM (RAM_PSRAM) ------------------------------------
+  // The bank's pins come out of the board (--export), the bytes go back in
+  // to its eight sockets (psram_q, psram_oe).  The CPU stays in reset until
+  // the PSRAM has had its 150 us and its configuration -- the ROM's first
+  // instructions test the RAM, and would find only 16K.
+  wire [7:0] psram_q;
+  wire       psram_oe;
+`ifdef RAM_PSRAM
+  wire bank_ras_n, bank_cas_n, bank_we_n, psram_ready, psram_err;
+  wire [4:0] psram_diag;
+  wire [7:0] bank_ma, bank_d;
+  psram_bank #(.CLK_HZ(`SYS_MHZ * 1_000_000)) upper_ram (
+      .clk(clk_x5), .rst_n(pll135_lock), .ready(psram_ready), .err(psram_err), .diag(psram_diag), .dbg_tx(psram_dbg_tx),
+      .ras_n_pin(bank_ras_n), .cas_n_pin(bank_cas_n), .we_n_pin(bank_we_n),
+      .ma(bank_ma), .d(bank_d), .q(psram_q), .oe(psram_oe),
+      .psram_ck(psram_ck), .psram_ck_n(psram_ck_n), .psram_cs_n(psram_cs_n),
+      .psram_reset_n(psram_reset_n), .psram_rwds(psram_rwds), .psram_dq(psram_dq));
+  wire res_n_sys = res_n_sys_raw & psram_ready;
+`else
+  assign psram_q = 8'h00;
+  assign psram_oe = 1'b0;
+  wire res_n_sys = res_n_sys_raw;
 `endif
 
   // --- the board -------------------------------------------------------------
@@ -172,11 +223,13 @@ module top #(
   `define F14_FROM_SYS
 `endif
 `ifdef F14_FROM_SYS
+  // clk_x5 / 10 at 135 MHz, / 6 at 81 MHz: 13.5 MHz, high for half of it
+  localparam [3:0] F14_DIV = `SYS_MHZ * 2 / 27;
   reg [3:0] f14_div = 4'd0;
   reg       f14 = 1'b0;
   always @(posedge clk_x5) begin
-    f14_div <= (f14_div == 4'd9) ? 4'd0 : f14_div + 4'd1;
-    f14     <= (f14_div < 4'd5);
+    f14_div <= (f14_div == F14_DIV - 4'd1) ? 4'd0 : f14_div + 4'd1;
+    f14     <= (f14_div < F14_DIV / 2);
   end
 `else
   reg f14 = 1'b0;
@@ -201,7 +254,7 @@ module top #(
                     .dbg_err(kb_err), .dbg_any_down(kb_any),
                     .dbg_code(kb_code), .dbg_down(kb_down));
 `ifdef PS2_UART
-  ps2_uart_mon #(.CLK_HZ(135_000_000)) mon (.clk(clk_x5), .code(kb_code),
+  ps2_uart_mon #(.CLK_HZ(`SYS_MHZ * 1_000_000)) mon (.clk(clk_x5), .code(kb_code),
                     .valid(kb_valid), .err(kb_err), .down(kb_down), .kd(kd), .clk_fall(kb_clk_fall),
                     .tx(uart_tx));
 `endif
@@ -231,7 +284,7 @@ module top #(
 `else
   wire nmi_f12 = 1'b0;
 `endif
-  nmi_gen #(.CLK_HZ(135_000_000)) nmig (.clk(clk_x5), .f12(nmi_f12), .btn(nmi_btn), .nmi_n(nmi_gen_n));
+  nmi_gen #(.CLK_HZ(`SYS_MHZ * 1_000_000)) nmig (.clk(clk_x5), .f12(nmi_f12), .btn(nmi_btn), .nmi_n(nmi_gen_n));
 `ifdef SD_NONMI
   assign nmi_n = 1'b1;                        // diagnostic: NMI disconnected
 `else
@@ -280,6 +333,14 @@ module top #(
 `endif
       .nmi_n   (nmi_n),
       .rom_bank(rom_bank),
+      .psram_q (psram_q), .psram_oe (psram_oe),
+`ifdef RAM_PSRAM
+      ._RAS5_out (bank_ras_n), ._CAS5_out (bank_cas_n), ._WR5_out (bank_we_n),
+      .MA0_out (bank_ma[0]), .MA1_out (bank_ma[1]), .MA2_out (bank_ma[2]), .MA3_out (bank_ma[3]),
+      .MA4_out (bank_ma[4]), .MA5_out (bank_ma[5]), .MA6_out (bank_ma[6]), .MA7_out (bank_ma[7]),
+      .D0_out (bank_d[0]), .D1_out (bank_d[1]), .D2_out (bank_d[2]), .D3_out (bank_d[3]),
+      .D4_out (bank_d[4]), .D5_out (bank_d[5]), .D6_out (bank_d[6]), .D7_out (bank_d[7]),
+`endif
       .wait_n  (1'b1),
       .busrq_n (1'b1),
       .jp_ru6  (1'b1),              // RAM type jumper
@@ -405,7 +466,7 @@ module top #(
   generate
     if (WITH_HDMI) begin : hdmi_gen
 `ifdef HDMI_SELFTEST
-      // Diagnostic: feed the encoder from a known-good 576p50 test-pattern
+      // Diagnostic: feed the encoder from tang9k-hdmi-test's known-good 576p50
       // generator instead of the scan doubler, with the whole board still
       // running.  If this syncs and the normal build does not, the doubler's
       // output (i.e. the board's own sync) is what the monitor rejects.
@@ -513,8 +574,8 @@ module top #(
   end
 
   // --- raster checkers on the spare LEDs (sticky) ---------------------------
-  // Kept from the 20K bring-up, when the doubler's output did not sync while a
-  // known-good generator through the same encoder did -- they check, on the
+  // The doubler's output syncs on the 9K but not on the 20K, while a known-good
+  // generator through the same encoder syncs on both -- so check, on the
   // hardware, whether the raster the doubler emits (and the board raster it
   // follows) is actually regular.  Each flag latches on the first violation
   // after a settling period; a frame is only judged once a full frame has been
@@ -609,7 +670,18 @@ module top #(
 `ifdef HDMI_720P
   // LED1, LED2: the tripler's realignment found the raster a pixel or two off
   // (synchroniser jitter, tolerated), or further off after the first lock
+`ifdef RAM_PSRAM
+  // LED1 here: the PSRAM controller saw trouble (sticky; see psram_ctrl.v)
+`ifdef PSRAM_DIAG
+  // LED0 request while busy, LED1 RWDS wrong at the sample, LED2 s1 used,
+  // LED3 s2 used, LED4 a 2x (refresh) read seen; LED5 the heartbeat.
+  assign led = ~{sd_beat[26], psram_diag[4], psram_diag[3], psram_diag[2], psram_diag[1], psram_diag[0]};
+`else
+  assign led = ~{sd_beat[26], sd_error, sd_mounted, slip_big, psram_err, nmi_seen};
+`endif
+`else
   assign led = ~{sd_beat[26], sd_error, sd_mounted, slip_big, slip_small, nmi_seen};
+`endif
 `else
   assign led = ~{sd_beat[26], sd_error, sd_mounted, nmi_f12, btn_s[1], nmi_seen};
 `endif

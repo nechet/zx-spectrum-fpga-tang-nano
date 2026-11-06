@@ -9,8 +9,8 @@
 # "Amstrad have kindly given their permission for the redistribution of
 # their copyrighted material but retain that copyright."
 #
-#   scripts/get_rom.sh            download (Fuse on SourceForge, then a mirror)
-#   scripts/get_rom.sh 48.rom     use your own 16 KB image instead
+#   scripts-9k/get_rom.sh            download (Fuse on SourceForge, then a mirror)
+#   scripts-9k/get_rom.sh 48.rom     use your own 16 KB image instead
 #
 # Either way the file must be the standard 48K ROM:
 #   sha1 5ea7c2b824672e914525d1d5c419d71b84a426a2

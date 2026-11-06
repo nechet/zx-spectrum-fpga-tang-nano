@@ -11,12 +11,15 @@
 // generated board netlist is used unmodified -- only the implementations under
 // it change.
 //
-// Without RAM48 this builds a 16K Spectrum: ROM plus the 16 KB of video RAM,
-// and the upper 32 KB left unpopulated, for FPGAs with little block RAM:
+// By default this builds a 16K Spectrum: ROM plus the 16 KB of video RAM, and the upper
+// 32 KB left unpopulated.  The reason is the BSRAM budget on a GW1N-9C:
 //
 //   ROM                       8 blocks
 //   video RAM  D42-D49        8 blocks   (16K x 1 each -> exactly one block)
 //   upper RAM  D23-D30       32 blocks   (64K x 1 each -> four blocks each)
+//                            --
+//   16K machine              16 of 26    fits
+//   48K machine              48 of 26    does not
 //
 // An unpopulated DRAM reads as all ones, which is what a real board does with
 // an empty socket -- and what the ROM's memory test expects to find when it
@@ -28,17 +31,29 @@
 // which top.v ties high, and /CAS5 only falls for A15 = 1 accesses -- so each
 // chip sees only 7 row bits (A0..A6) and 8 column bits (A7..A14), 32K x 1.
 // The model stores those 32K and ignores row bit 7.
+//
+// `define RAM_PSRAM (the Tang Nano 9K's 48K build) keeps those 32K in the
+// on-package PSRAM instead: ../tang20k/psram_bank.v watches the
+// bank's pins, stores the bytes, and hands each read back on psram_q.  The
+// eight upper sockets are then only output pins -- each drives bit LANE of
+// psram_q (its data line, set by bus_resolve.py --net-index-param) while
+// psram_oe says a read is on the bus.
 // -----------------------------------------------------------------------------
 `default_nettype none
 
-module dram_x1 #(parameter ROWBITS = 8) (
+module dram_x1 #(parameter ROWBITS = 8,
+                 parameter LANE = 0) (     // data bit: bus_resolve.py --net-index-param
     input  wire p2, p3, p4, p5, p6, p7, p9, p10, p11, p12, p13, p15,
     output wire p14,
     input  wire p8, p16,
+    input  wire [7:0] psram_q,   // not on the PCB: RAM_PSRAM's read data (--model-input)
+    input  wire psram_oe,        //   ... and its output enable
     input  wire clk_sys);        // wired up automatically by bus_resolve.py
 
 `ifdef RAM48
   localparam POPULATED = 1;
+`elsif RAM_PSRAM
+  localparam POPULATED = (ROWBITS <= 7);    // the 64K parts live in the PSRAM
 `else
   localparam POPULATED = (ROWBITS <= 7);    // 16K parts only; see above
 `endif
@@ -137,6 +152,10 @@ module dram_x1 #(parameter ROWBITS = 8) (
       // short of the next access.  It must release to z, not to 1: the CPU,
       // the ROM and the '245 all drive this same net.
       assign p14 = ((!cas_f && rd_valid) || hold != 2'd0) ? dout : 1'b1;
+`ifdef RAM_PSRAM
+    end else if (ROWBITS == 8) begin : psram
+      assign p14 = psram_oe ? psram_q[LANE] : 1'b1;  // the socket wired to psram_bank
+`endif
     end else begin : empty
       assign p14 = 1'b1;                            // no chip in the socket
     end
@@ -144,7 +163,9 @@ module dram_x1 #(parameter ROWBITS = 8) (
 endmodule
 
 // --- 27C128, 16K x 8, initialised from a $readmemh image ---------------------
-module rom_27c128 #(parameter ROMFILE = "spectrum48.hex") (
+module rom_27c128 #(parameter ROMFILE     = "spectrum48.hex",
+                    parameter ROMFILE1LO  = "spectrum48_1lo.hex",   // ROM_BANK1_SMALL only
+                    parameter ROMFILE1HI  = "spectrum48_1hi.hex") (
     input  wire p26, p23, p2, p21, p24, p25, p9, p10, p3, p4, p5, p6, p7, p8,
     input  wire p20, p22, p1, p27,
     output wire p11, p12, p13, p15, p16, p17, p18, p19,
@@ -155,16 +176,36 @@ module rom_27c128 #(parameter ROMFILE = "spectrum48.hex") (
   // `define ROM_BANKS (the SD loader build): a second 16K bank behind the
   // first, like a divIDE's EPROM sharing the socket's lines -- ROMFILE then
   // holds 32K, and rom_bank picks the half.  Otherwise rom_bank is ignored.
+  //
+  // `define ROM_BANK1_SMALL as well (the Tang Nano 9K, short of block RAM):
+  // bank 1 is only the two windows the menu uses, 0000-0FFF and 3800-3FFF,
+  // 6K instead of 16K -- like fitting a small EPROM and decoding only the
+  // addresses it answers.  Three memories, each a power of two (Gowin builds
+  // ROMs from power-of-two slices, and rounds one 22K array up to 32K): bank
+  // 0 from ROMFILE, the windows from ROMFILE1LO and ROMFILE1HI (mk_sdrom.py
+  // SMALL_BANK1=1).  Elsewhere in bank 1 the windows repeat; nothing reads
+  // there.  8 + 2 + 1 blocks.
+  wire [13:0] ra = {p26, p2, p23, p21, p24, p25, p3, p4, p5, p6, p7, p8, p9, p10};
 `ifdef ROM_BANKS
+`ifdef ROM_BANK1_SMALL
+  localparam AB = 14;
+  wire [13:0] a = ra;
+  reg [7:0] mem1lo [0:4095];
+  reg [7:0] mem1hi [0:2047];
+`else
   localparam AB = 15;
-  wire [14:0] a = {rom_bank, p26, p2, p23, p21, p24, p25, p3, p4, p5, p6, p7, p8, p9, p10};
+  wire [14:0] a = {rom_bank, ra};
+`endif
 `else
   localparam AB = 14;
-  wire [13:0] a = {p26, p2, p23, p21, p24, p25, p3, p4, p5, p6, p7, p8, p9, p10};
+  wire [13:0] a = ra;
 `endif
   reg [7:0] mem [0:(1 << AB) - 1];
   reg [7:0] d;
   reg [8*64:1] romfile;
+`ifdef ROM_BANK1_SMALL
+  reg [8*64:1] romfile1lo, romfile1hi;
+`endif
   initial begin
     // +ROMFILE=<path> swaps the image in simulation.  testrom.hex writes the
     // screen immediately; the real ROM takes a second of machine time to get
@@ -173,9 +214,19 @@ module rom_27c128 #(parameter ROMFILE = "spectrum48.hex") (
     // $value$plusargs is simulation-only -- yosys cannot resolve it -- and
     // $readmemh needs a literal path, not a variable, so use the parameter.
     $readmemh(ROMFILE, mem);
+`ifdef ROM_BANK1_SMALL
+    $readmemh(ROMFILE1LO, mem1lo);
+    $readmemh(ROMFILE1HI, mem1hi);
+`endif
 `else
     if (!$value$plusargs("ROMFILE=%s", romfile)) romfile = ROMFILE;
     $readmemh(romfile, mem);
+`ifdef ROM_BANK1_SMALL
+    if (!$value$plusargs("ROMFILE1LO=%s", romfile1lo)) romfile1lo = ROMFILE1LO;
+    if (!$value$plusargs("ROMFILE1HI=%s", romfile1hi)) romfile1hi = ROMFILE1HI;
+    $readmemh(romfile1lo, mem1lo);
+    $readmemh(romfile1hi, mem1hi);
+`endif
 `endif
   end
 
@@ -188,7 +239,23 @@ module rom_27c128 #(parameter ROMFILE = "spectrum48.hex") (
   // follows the address one clk_sys (7.4 ns) behind, far quicker than a real
   // 27C128's 150-250 ns.  (It used to read on the falling edge of /CE, which
   // made /CE -- a board signal -- one more separately routed FPGA clock.)
+`ifdef ROM_BANK1_SMALL
+  // All three read every clock; the bank and A13, registered alongside,
+  // pick the one that answers, into a register of its own: two clocks from
+  // address to data (25 ns at 81 MHz, against the 27C128's 150-250), and a
+  // named register the timing constraints can start from.
+  reg [7:0] d0, d1lo, d1hi;
+  reg [1:0] sel;
+  always @(posedge clk_sys) begin
+    d0   <= mem[a];
+    d1lo <= mem1lo[ra[11:0]];
+    d1hi <= mem1hi[ra[10:0]];
+    sel  <= {rom_bank, ra[13]};
+    d    <= !sel[1] ? d0 : sel[0] ? d1hi : d1lo;
+  end
+`else
   always @(posedge clk_sys) d <= mem[a];
+`endif
 
   wire oe = ~p20 & ~p22;
   // Release to `z`, not to FF -- see the note on the DRAM output above.

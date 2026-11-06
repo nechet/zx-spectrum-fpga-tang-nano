@@ -5,6 +5,10 @@ module packet_assembler (
     input logic clk_pixel,
     input logic reset,
     input logic data_island_period,
+    // timing: header and sub arrive pre-shifted -- the bits for this pixel at
+    // the bottom (header[0], sub[i][1:0]) -- from shift registers in
+    // hdmi_audio_out.sv, instead of being indexed here by the counter (a 28:1
+    // multiplexer ahead of the ECC, too slow for the Tang Nano 9K at 81 MHz)
     input logic [23:0] header, // See Table 5-8 Packet Types
     input logic [55:0] sub [3:0],
     output logic [8:0] packet_data, // See Figure 5-4 Data Island Packet and ECC Structure
@@ -20,19 +24,28 @@ begin
         counter <= counter + 5'd1;
 end
 // BCH packets 0 to 3 are transferred two bits at a time, see Section 5.2.3.4 for further information.
-wire [5:0] counter_t2 = {counter, 1'b0};
-wire [5:0] counter_t2_p1 = {counter, 1'b1};
 
 // Initialize parity bits to 0
-logic [7:0] parity [4:0] = '{8'd0, 8'd0, 8'd0, 8'd0, 8'd0};
+logic [7:0] parity [4:0];
+initial begin parity[0] = 8'd0; parity[1] = 8'd0; parity[2] = 8'd0; parity[3] = 8'd0; parity[4] = 8'd0; end  // iverilog: element by element
 
-wire [63:0] bch [3:0];
-assign bch[0] = {parity[0], sub[0]};
-assign bch[1] = {parity[1], sub[1]};
-assign bch[2] = {parity[2], sub[2]};
-assign bch[3] = {parity[3], sub[3]};
-wire [31:0] bch4 = {parity[4], header};
-assign packet_data = {bch[3][counter_t2_p1], bch[2][counter_t2_p1], bch[1][counter_t2_p1], bch[0][counter_t2_p1], bch[3][counter_t2], bch[2][counter_t2], bch[1][counter_t2], bch[0][counter_t2], bch4[counter]};
+// timing: the data bits come from the bottom of the shifted inputs; the ECC
+// bits at the end of the packet (counter 28-31, 24-31 for the header) by a
+// small index into parity
+wire       ecc_out  = counter >= 5'd28;
+wire       ecc_out4 = counter >= 5'd24;
+wire [5:0] pi = {counter[1:0], 1'b0};       // 28 -> 0, 29 -> 2, ...
+wire [3:0] lo, hi;
+genvar j;
+generate
+    for (j = 0; j < 4; j++)
+    begin: bits
+        assign lo[j] = ecc_out ? parity[j][pi[2:0]]        : sub[j][0];
+        assign hi[j] = ecc_out ? parity[j][pi[2:0] + 3'd1] : sub[j][1];
+    end
+endgenerate
+wire bit4 = ecc_out4 ? parity[4][counter[2:0]] : header[0];
+assign packet_data = {hi[3], hi[2], hi[1], hi[0], lo[3], lo[2], lo[1], lo[0], bit4};
 
 // See Figure 5-5 Error Correction Code generator. Generalization of a CRC with binary BCH.
 // See https://web.archive.org/web/20190520020602/http://hamsterworks.co.nz/mediawiki/index.php/Minimal_HDMI#Computing_the_ECC for an explanation of the implementation.
@@ -55,11 +68,11 @@ generate
     for(i = 0; i < 5; i++)
     begin: parity_calc
         if (i == 4)
-            assign parity_next[i] = next_ecc(parity[i], header[counter]);
+            assign parity_next[i] = next_ecc(parity[i], header[0]);           // timing: pre-shifted
         else
         begin
-            assign parity_next[i] = next_ecc(parity[i], sub[i][counter_t2]);
-            assign parity_next_next[i] = next_ecc(parity_next[i], sub[i][counter_t2_p1]);
+            assign parity_next[i] = next_ecc(parity[i], sub[i][0]);           // timing: pre-shifted
+            assign parity_next_next[i] = next_ecc(parity_next[i], sub[i][1]);
         end
     end
 endgenerate

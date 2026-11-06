@@ -32,7 +32,8 @@ COL_HEAD: equ    4Fh             ; bright blue paper, white ink: title / help
 
 ; frame variables, (ix+n)
 ; the system variables tap uses, and the layout the ROM's START makes on 48K
-RAMTOP:  equ     0FF57h          ; the value START gives RAMTOP
+RAMTOP:  equ     0FF57h          ; the value START gives RAMTOP on a 48K machine
+                                ; (7F57 on a 16K one: the .TAP start finds which)
 P_RAMT:  equ     5CB4h
 RAMTOPV: equ     5CB2h           ; the variable RAMTOP itself
 UDG:     equ     5C7Bh
@@ -229,7 +230,16 @@ tap:    ld      a, 4            ; open: the stream starts at the first block
         jp      c, noif
         ld      a, 7            ;                                       11CC
         out     (0FEh), a       ; white border
-        ld      sp, RAMTOP - 1  ; the ROM's stack; the menu's is abandoned 1228
+        ld      hl, 0FFFFh      ; the top of RAM, as START's RAM test   11DA
+        ld      a, (hl)         ; finds it: FFFF on a 48K machine, 7FFF
+        cpl                     ; on a 16K one, whose empty sockets read
+        ld      (hl), a         ; FF whatever is written
+        cp      (hl)
+        jr      z, ramtop
+        ld      h, 7Fh
+ramtop: ld      de, RAMTOP - 1 - 0FFFFh
+        add     hl, de          ; RAMTOP - 1: FF56 or 7F56
+        ld      sp, hl          ; the ROM's stack; the menu's is abandoned 1228
         im      1               ; (a game may have left IM 2)          122E
         ld      iy, 5C3Ah       ; IY -> ERR_NR, as the ROM keeps it     1230
         ld      hl, 5C00h       ; the system variables, zero
@@ -237,22 +247,26 @@ tap:    ld      a, 4            ; open: the stream starts at the first block
         ld      bc, PROG_0 - 5C00h
         ld      (hl), 0
         ldir
-        ld      hl, 0FFFFh
+        ld      hl, 0           ; everything below hangs off SP = RAMTOP - 1
+        add     hl, sp
+        ld      de, 0FFFFh - (RAMTOP - 1)
+        add     hl, de          ; the top of RAM again
         ld      (P_RAMT), hl    ;                                       1200
+        ex      de, hl
         ld      hl, 3EAFh       ; the UDGs: the font's letters A-U       1203
-        ld      de, 0FFFFh      ; (bank 1 has the font, at the same address)
-        ld      bc, 0A8h
-        lddr
-        ld      hl, RAMTOP + 1
-        ld      (UDG), hl       ;                                       120E
-        ld      hl, 0040h
-        ld      (RASP), hl      ; RASP 40h, PIP 0                       1215
-        ld      hl, RAMTOP
+        ld      bc, 0A8h        ; (bank 1 has the font, at the same address)
+        lddr                    ; ends with DE = top - A8 = RAMTOP
+        ex      de, hl
         ld      (RAMTOPV), hl   ;                                       1219
         ld      (hl), 3Eh       ; the marker the ROM leaves at RAMTOP   1225
+        inc     hl
+        ld      (UDG), hl       ; RAMTOP + 1                            120E
+        ld      hl, 0040h
+        ld      (RASP), hl      ; RASP 40h, PIP 0                       1215
         ld      hl, 3C00h
         ld      (CHARS), hl     ;                                       121F
-        ld      hl, RAMTOP - 3
+        ld      hl, -2
+        add     hl, sp          ; RAMTOP - 3
         ld      (ERR_SP), hl    ;                                       122B
         ld      hl, CHANS_0
         ld      (CHANS), hl     ;                                       1238

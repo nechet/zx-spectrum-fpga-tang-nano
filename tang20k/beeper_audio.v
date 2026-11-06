@@ -58,7 +58,16 @@ module beeper_audio #(
   // 2. the integrator: up to 563 x (16 + 4) = 11260 either way
   localparam signed [15:0] AMP = 16, AMP_TAPE = 4;
   reg signed [15:0] sum = 16'sd0;
-  wire signed [15:0] step = (spk_s[1] ? AMP : -AMP) + (tap_s[1] ? AMP_TAPE : -AMP_TAPE);
+  // The synchronised bits are taken once more on ce, so that everything this
+  // arithmetic reads changes only on ce: at 720p (CLK_DIV 3) it then has three
+  // pixel clocks to settle, which the Tang Nano 9K needs and its constraints
+  // file declares.
+  reg spk_q = 1'b0, tap_q = 1'b0;
+  always @(posedge clk_pixel) if (ce) begin
+    spk_q <= spk_s[1];
+    tap_q <= tap_s[1];
+  end
+  wire signed [15:0] step = (spk_q ? AMP : -AMP) + (tap_q ? AMP_TAPE : -AMP_TAPE);
 
   // 3. the high-pass, with headroom: a step from -11260 to +11260 overshoots
   // to about twice that before it decays

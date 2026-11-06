@@ -33,7 +33,7 @@ so `rom/*.hex` and `rom/*.rom` are in `.gitignore`.
 
 Download it from the Fuse emulator, which carries Amstrad's permission:
 <https://sourceforge.net/p/fuse-emulator/fuse/ci/master/tree/roms/48.rom?format=raw>
-(sha1 `5ea7c2b824672e914525d1d5c419d71b84a426a2`). `../../scripts/get_rom.sh`
+(sha1 `5ea7c2b824672e914525d1d5c419d71b84a426a2`). `../../scripts-20k/get_rom.sh` (or `../../scripts-9k/get_rom.sh`)
 does that, checks the sum and writes `spectrum48.hex` here and where the
 builds read it. Or dump the ROM from a machine you own.
 

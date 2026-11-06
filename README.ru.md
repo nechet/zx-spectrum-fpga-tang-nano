@@ -1,10 +1,10 @@
-# ZX Spectrum на ПЛИС: «Краснодар-48» на Tang Nano 20K
+# ZX Spectrum на ПЛИС: «Краснодар-48» на Tang Nano 20K или 9K
 
 [English version](README.md)
 
 **«Краснодар-48»** — советский клон ZX Spectrum 48K. Этот проект запускает
-эту плату на ПЛИС Sipeed **Tang Nano 20K** — не как эмулятор Спектрума, а
-как саму плату. Её схема (автор Роман Бойков,
+эту плату на ПЛИС Sipeed **Tang Nano 20K** или на меньшей **Tang Nano 9K** —
+не как эмулятор Спектрума, а как саму плату. Её схема (автор Роман Бойков,
 [romychs/Krasnodar-48](https://github.com/romychs/Krasnodar-48))
 переведена микросхема за микросхемой в Verilog-нетлист: логика ТТЛ и КМОП,
 тайминги ДОЗУ на RC-цепочках, ВВ55 (8255), ПЗУ и ядро Z80 в
@@ -31,21 +31,27 @@
 * **Тесты**: тестбенчи Icarus Verilog для отдельных узлов и для всей платы,
   вплоть до проверки каждого пикселя кадра 720p
 
+На **Tang Nano 9K** работает та же машина 48K с той же картинкой 720p,
+звуком, клавиатурой и меню игр. Блочной памяти этой ПЛИС на все 48 КБ не
+хватает, поэтому верхние 32 КБ лежат в PSRAM внутри корпуса микросхемы.
+Клавиатура подключается к выводам 31 (CLK) и 32 (DATA). Подробности (на
+английском): [`tang9k/`](tang9k/README.md).
+
 ## Что понадобится
 
 | | |
 |---|---|
-| плата | Sipeed Tang Nano 20K |
+| плата | Sipeed Tang Nano 20K или Tang Nano 9K |
 | экран | HDMI-монитор или телевизор. Сигнал 1280x720 при 48,3 Гц (или 720x576 при 48,3 Гц) — синхронизирован с кадром Спектрума, поэтому частота нестандартная. Большинство мониторов его принимают. |
-| клавиатура | PS/2-клавиатура, **работающая от 3,3 В**, или USB-клавиатура + переходник на Waveshare RP2040-Zero ([готовая прошивка и схема](#переходник-usb-клавиатуры)), на выводах разъёма **73** (CLK) и **74** (DATA) |
+| клавиатура | PS/2-клавиатура, **работающая от 3,3 В**, или USB-клавиатура + переходник на Waveshare RP2040-Zero ([готовая прошивка и схема](#переходник-usb-клавиатуры)), на выводах разъёма **73** (CLK) и **74** (DATA); на 9K — выводы **31** и **32** |
 | карта | microSD, FAT32 |
-| ПЗУ | ПЗУ ZX Spectrum 48K (Amstrad), не входит в репозиторий: [скачать 48.rom](https://sourceforge.net/p/fuse-emulator/fuse/ci/master/tree/roms/48.rom?format=raw) ([разрешение Amstrad](https://web.archive.org/web/20160119110852/http://www.worldofspectrum.org/permits/amstrad-roms.txt)); `scripts/get_rom.sh` скачает его сам |
+| ПЗУ | ПЗУ ZX Spectrum 48K (Amstrad), не входит в репозиторий: [скачать 48.rom](https://sourceforge.net/p/fuse-emulator/fuse/ci/master/tree/roms/48.rom?format=raw) ([разрешение Amstrad](https://web.archive.org/web/20160119110852/http://www.worldofspectrum.org/permits/amstrad-roms.txt)); `scripts-20k/get_rom.sh` (или такой же `scripts-9k/get_rom.sh`) скачает его сам |
 
 ## Программы
 
 | программа | зачем | примечание |
 |---|---|---|
-| [Gowin EDA](https://www.gowinsemi.com/en/support/home/) 1.9.11 | сборка прошивки | бесплатная версия Education поддерживает GW2AR-18C |
+| [Gowin EDA](https://www.gowinsemi.com/en/support/home/) 1.9.11 | сборка прошивки | бесплатная версия Education поддерживает обе микросхемы (GW2AR-18C, GW1NR-9C) |
 | [openFPGALoader](https://github.com/trabucayre/openFPGALoader) | загрузка в плату | |
 | python3, z80asm, curl | образ ПЗУ, ПЗУ меню SD | `apt install python3 z80asm curl` |
 | [Icarus Verilog](https://github.com/steveicarus/iverilog) | только моделирование | `apt install iverilog` |
@@ -53,20 +59,28 @@
 ## Быстрый старт
 
 ```sh
-git clone https://github.com/nechet/zx-spectrum-fpga-tang-nano-20k
-cd zx-spectrum-fpga-tang-nano-20k
+git clone https://github.com/nechet/zx-spectrum-fpga-tang-nano
+cd zx-spectrum-fpga-tang-nano
 
-scripts/get_rom.sh               # ПЗУ 48K (см. «ПЗУ» ниже)
+scripts-20k/get_rom.sh           # ПЗУ 48K (см. «ПЗУ» ниже)
 
 export GOWIN=/путь/к/gowin/IDE   # папка, в которой лежит bin/gw_sh
-scripts/build.sh                 # сборка 720p; "scripts/build.sh 576p" — 4:3
+scripts-20k/build.sh             # сборка 720p; "scripts-20k/build.sh 576p" — 4:3
 
-scripts/upload.sh                # в ПЛИС, до выключения питания
-scripts/upload.sh flash          # во флеш платы, насовсем
+scripts-20k/upload.sh            # в ПЛИС, до выключения питания
+scripts-20k/upload.sh flash      # во флеш платы, насовсем
 ```
 
 Готовая прошивка:
 `tang20k/gowin_sd720/impl/pnr/krasnodar_20k_sd720.fs`.
+
+Для Tang Nano 9K:
+
+```sh
+scripts-9k/build.sh              # 48K, 720p; "scripts-9k/build.sh 16k" — 16K
+scripts-9k/upload.sh             # в ПЛИС, до выключения питания
+scripts-9k/upload.sh flash       # во флеш платы, насовсем
+```
 
 ## ПЗУ
 
@@ -78,9 +92,9 @@ scripts/upload.sh flash          # во флеш платы, насовсем
 * контрольная сумма: sha1 `5ea7c2b824672e914525d1d5c419d71b84a426a2`, 16384 байта
 
 ПЗУ принадлежит **Amstrad**, и его **нет** в этом репозитории. Нет и
-прошивок самой машины: в каждую из них встроено ПЗУ. `scripts/get_rom.sh`
+прошивок самой машины: в каждую из них встроено ПЗУ. `scripts-20k/get_rom.sh`
 скачивает его по ссылке выше, проверяет контрольную сумму и готовит для
-сборки. Свой образ: `scripts/get_rom.sh my48.rom`.
+сборки. Свой образ: `scripts-20k/get_rom.sh my48.rom`.
 
 Amstrad разрешает использовать ПЗУ с эмуляторами, если не изменять
 сообщения об авторских правах и не продавать его:
@@ -153,8 +167,9 @@ USB-клавиатуру в PS/2-клавиатуру на 3,3 В и подкл�
 ## Тесты
 
 ```sh
-scripts/test.sh          # быстро: утроитель строк и звук по HDMI (~10 мин)
-scripts/test.sh full     # вся плата: меню, .z80, .tap, кадр 720p (часы)
+scripts-20k/test.sh              # быстро: утроитель строк и звук по HDMI (~10 мин)
+scripts-20k/test.sh full         # вся плата: меню, .z80, .tap, кадр 720p (часы)
+scripts-9k/test.sh               # Tang Nano 9K: контроллер PSRAM, машины 48K и 16K (часы)
 ```
 
 ## Ограничения
@@ -163,27 +178,30 @@ scripts/test.sh full     # вся плата: меню, .z80, .tap, кадр 720
   медленнее, а частота кадров 48,3 Гц вместо 50. Зато все тактовые частоты
   даёт одна ФАПЧ, и картинка жёстко привязана к плате.
 * Снимки `.Z80` версий 2/3 и файлы `.SNA` пока не загружаются.
+* На Tang Nano 9K PSRAM отдаёт байт за один такт 81 МГц (12 нс) до того,
+  как его забирает процессор. На проверенной плате это работает, но запас
+  мал, а опробована пока только одна плата 9K.
 * Джойстик пока подключить нельзя. Порт Kempston (31, 1Fh) читается как
   интерфейс без подключённого джойстика, поэтому снимки, сохранённые с
   включённым джойстиком Kempston, управляются с клавиатуры.
 
 ## Что где лежит
 
-Три папки сохранили имена, под которыми велась разработка, — так все пути
-в файлах сборки и тестбенчах работают без изменений.
-
 | папка | содержимое |
 |---|---|
 | [`tang20k/`](tang20k/) | порт на Tang Nano 20K: HDMI (утроитель строк, звук), клавиатура PS/2, загрузчик с SD и ПЗУ его меню, сборки Gowin, тестбенчи. Его [README](tang20k/README.md) — подробный инженерный журнал, а [LEARNING.md](tang20k/LEARNING.md) объясняет, как всё устроено, тем, кто знает логические микросхемы и только начинает с ПЛИС (оба на английском) |
+| [`tang9k/`](tang9k/) | порт на Tang Nano 9K: верхние 32 КБ в PSRAM (контроллер, его тесты, отдельный стенд для проверки PSRAM) и сборки Gowin для 9K. Всё остальное он берёт из `tang20k/` и `core/`. [README](tang9k/README.md) (на английском) |
 | [`core/`](core/) | общее ядро: верхний уровень, удвоитель строк, выход HDMI, память в ПЛИС и сгенерированный нетлист платы (`gen/`) |
 | [`Krasnodar-48-fpga/`](Krasnodar-48-fpga/) | перевод схемы: версии для KiCad, Verilog-нетлист, синтезируемые модели микросхем, ядро Z80 TV80 и программы-конвертеры |
 | [`ps2pico/`](ps2pico/) | переходник USB-клавиатуры: изменённая прошивка ps2pico для RP2040-Zero, готовый `ps2pico.uf2`, схема |
-| [`scripts/`](scripts/) | получить ПЗУ, собрать, загрузить, протестировать |
+| [`scripts-20k/`](scripts-20k/), [`scripts-9k/`](scripts-9k/) | для каждой платы: `get_rom.sh` (в обеих папках одинаковый), `build.sh`, `upload.sh`, `test.sh` |
 | [`docs/`](docs/) | фотографии |
 
 Сборки в `tang20k/`: `gowin_sd720` (720p, основная),
 `gowin_sd` (576p), `gowin` (голая машина 48K), `gowin_sdtest` (проверка
 SD-карты), `gowin_hdmi720*` (тестовая картинка и тест звука 720p, они же
+в `bitstreams/`). Сборки в `tang9k/`: `gowin_9k_48k` (48K, основная),
+`gowin_9k_sd720` (16K, без PSRAM), `gowin_psram_test` (стенд PSRAM, он же
 в `bitstreams/`).
 
 ## Лицензия и благодарности

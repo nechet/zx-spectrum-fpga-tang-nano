@@ -1018,6 +1018,241 @@ write. Before reusing a port for your own protocol, check what programs
 already expect to find there -- and make it return that whenever your
 protocol is not running.
 
+### 7.25 The Tang Nano 9K: the same board on half the chip
+
+The 9K's GW1NR-9 has 26 blocks of RAM to the 20K's 46, and its logic is
+about a third slower. Two things had to change, and neither was a matter
+of turning knobs.
+
+**Memory: decode only what is used.** The 20K build uses 42 blocks. The
+upper 32 KB of RAM (16 blocks) waits for the 9K's PSRAM in the next stage;
+for now the 9K is a 16K Spectrum, which the ROM sizes at start-up and copes
+with (the menu's .TAP start finds the top of RAM the same way: write the
+last byte, read it back). The loader's ROM bank 1 is 16 KB, but the menu
+uses 1.5 KB of code, a few doorway bytes near 3874 and the font at 3D00.
+So bank 1 became two small memories answering 0000-0FFF and 3800-3FFF
+(`ROM_BANK1_SMALL`) -- on a TTL board, a 2716 in place of a 27128, with a
+decoder that lets it answer only where it is needed. 3 blocks instead of 8.
+One trap: Gowin builds a ROM from power-of-two slices, and rounded a single
+22 KB array up to 32 KB. Three arrays, 16K + 4K + 2K, came out at 8 + 2 + 1.
+
+**Speed: the board on 81 MHz.** At 135 MHz the board's own logic chains
+(the TTL netlist) needed about 14 ns against 7.4 ns. The pixel clock is
+81 MHz = 6 x 13.5, so on the 9K the board now runs on it (`BOARD_81`) and
+the whole design has one clock. Every delay the part models count in
+ticks follows the macro `SYS_MHZ`: the RC delays (8 and 20 ns: 1 and 2
+ticks, still in the same order), the /INT pulse, and the CD4015's
+propagation delays (40 and 33 ticks at 135 MHz), which set the screen
+window and had been tuned to a few ticks. The pixel-exact 720p frame test
+checks that the picture still comes out right.
+
+**Scaling a delay is not the same as keeping its meaning.** The first 9K
+test never reached BASIC: the frame showed the ROM's 02 memory fill, red
+on black. A program-counter sample every 50 ms said the CPU was not stuck
+but rebooting, and a log of the CPU's writes said why: the memory test
+wrote 01 to 4009 and read back 02, decided the RAM ended there, put the
+stack in screen memory and crashed. One write lost in about 17,000.
+
+The dump of the DRAM pins found the cell: the chip latched row 2D, the
+video's, not 09. Then the arbitration signals, clock by clock, showed the
+mechanism of section 7.12 again. D10 samples the CPU's look-ahead
+(`BLK0CPU`: address 4000-7FFF, `/MREQ` not yet low) on each `N_55` edge,
+and only while the video window is open -- before that it is held preset.
+At 81 MHz the window opened **one tick after** an `N_55` edge. That edge
+saw the window shut and let the CPU go; by the next one, `/MREQ` had
+fallen, the look-ahead had gone, and the CPU's write met a video fetch.
+
+Why: the CD4015 delay had been scaled, 33 ticks x 81/135 = 20 ticks, the
+same 245 ns. But the `N_55` edge it must beat is not a time in nanoseconds;
+it trails the window's clock edge by a fixed count of flip-flop stages, one
+*tick* each. Those stages do not get faster when the clock gets slower, so
+the margin -- two ticks at 135 MHz -- became minus one. A histogram of
+"ticks from the `N_55` edge to the window opening" made it one number:
+
+    135 MHz, 33 : opens 18 ticks after = 2 before the next edge   OK
+     81 MHz, 20 : opens  1 tick after                            1 bad write
+     81 MHz, 19 : opens on the same tick                         no margin
+     81 MHz, 18 : opens 11 ticks after = 1 before the next edge   OK
+
+18 it is (`sync_overrides.v`). Two other suspects were measured and
+cleared first: the CPU's `/MREQ` came 7 ticks before the sampling edge
+every time, and making the Z80 wrapper two ticks quicker changed nothing.
+In TTL terms: when you swap a 74LS part for a 74HC one, you re-check every
+race against the clock -- not only the delay you were thinking about.
+
+**Then the timing report, path by path.** A failing path is one of two
+kinds, and the fix depends on which:
+
+* *Really one clock* -- the logic must settle between two adjacent edges.
+  Make it shorter. `nmi_gen`'s 26-bit counter became a prescaler (one tick
+  a microsecond) feeding short counters, like a crystal divider feeding a
+  TTL timer chain. The HDMI packet assembler picked each bit with a 28:1
+  multiplexer, indexed by its counter, ahead of the ECC; now shift
+  registers load each packet and shift two bits a pixel, so the bits are
+  always at the bottom -- a 74LS165 instead of a 74LS151 tree. Two
+  comparisons of the raster counter that gated ~50 registers became
+  flip-flops set one pixel ahead.
+* *Only looks like one clock* -- the logic acts on a clock enable, or its
+  input was set many clocks before it is used. The Z80 steps only on its
+  CLK edges (at least ~5 ticks apart at 81 MHz); the ROM's byte is ready
+  long before the CPU takes it. Say so with a multicycle constraint -- but
+  only where it is true: the CPU clock's edge detector also lives in the
+  Z80 wrapper, runs every clock and drives every enable, and must stay a
+  one-clock path. Where a source changed every clock (the beeper's
+  synchroniser feeding arithmetic that runs every third clock), one more
+  register on the enable made the claim true first.
+
+**A constraint is a claim; check that it took.** Gowin's report lists each
+exception with the paths it caught. Three of ours caught nothing or not
+enough, silently: the register file's write-address pins (`WAD`) were not
+named; `get_regs` does not find registers inside a generate block (the
+DRAM latches -- named by their D pins instead, and that took two more
+tries: Gowin 1.9.11 matches no `-to [get_pins .../D]` at all, only
+`-through` the same pins); and a block RAM's output
+register has no register name at all (named with `-through` its data-out
+pins). Fixing them closed timing on the 20K too, at 135 MHz, for the first
+time: its builds had worked with those paths failing, by luck of placement.
+
+The TTL lesson: a slower family is not a reason to give up a design, but it
+removes the slack that hid the places where "it works" was not the same as
+"it is right".
+
+### 7.26 The 9K's 48K: a memory card on a ribbon cable
+
+The upper 32 KB needs 16 more blocks of RAM; the 9K has 5 left. But the
+GW1NR-9 package carries two PSRAM dies (HyperRAM-like, 4 MB each, 8 data
+lines), wired to the FPGA inside the package. Gowin connects them by
+*name*: a top-level port called `O_psram_ck`, `IO_psram_dq` ... is routed to
+the die; no pin numbers.
+
+**Where to cut the board.** The eight 565RU5 sockets of the upper bank stay
+in the netlist, but their cells move out. One module, `psram_bank`, sits
+on the same pins the chips do -- /RAS5, /CAS5, /WR5, MA0-7, D0-7 -- and does
+what a chip's own logic does: row on /RAS falling, column on /CAS falling,
+read or write. Each socket then just drives its own bit of the byte the
+module fetched. TTL picture: the DRAMs unplugged and a ribbon cable from
+their sockets to a memory card that pretends to be them. Nothing else on the
+board knows. (`bus_resolve.py` learned two options for this: an extra
+input for the generated socket models, and a parameter set from the
+socket's data-pin net, so U_D23 on D7 knows it is lane 7.)
+
+**First the budget, measured, not guessed.** A probe in the testbench
+counted ticks between the bank's strobes and the moment the CPU latches
+the data bus: 30 ticks from /CAS5 falling, every time (81 MHz is exactly 6
+x 13.5 MHz, so every part of the board counts the same clock; nothing
+drifts). That is 370 ns for: settle filter (2 ticks), the command, the
+PSRAM's latency, the data, back to the bus. Like a TTL designer checking
+an EPROM's tACC against the CPU's read window before choosing the part.
+
+**The PSRAM's own clock, without a second clock.** A HyperRAM transaction:
+CS# low, three CK cycles of command and address (one byte per CK *edge*),
+a latency of L cycles -- or 2L if the chip is busy refreshing, which it
+announces by holding RWDS high during the command -- then data, again one
+byte per edge. With L = 3 at 40.5 MHz the worst read is 27 ticks of 81 MHz
+(the last one: the byte taken from the later sample, s2). Fits: 2 + 27 = 29
+of 30 -- one tick to spare, and the board tests print the worst case they
+meet, so a change that eats it shows up at once. (The first design said 24 and 26: see "The chip
+disagreed" below.)
+
+CK is clk_sys / 2, made by a *DDR output cell*: a register that sends one
+bit on the rising edge of clk_sys and another on the falling. Feed it
+"0 then 1" on one tick and "1 then 0" on the next and the pin toggles at
+mid-tick -- CK's edges fall half a tick (6.2 ns) away from every edge where
+the data lines change. Setup and hold of 6.2 ns each, on both sides, from
+one clock and no PLL. In TTL: clock the data out on the 74LS74's Q and
+generate the memory's strobe from the *other* phase of the same oscillator.
+
+**Reading: let the chip say when.** The die drives data with RWDS beside
+it, edge-aligned, after an unknown delay (2-5.5 ns datasheet, plus the
+wires both ways). A sampler fixed at one instant fails when that delay
+moves by half a CK. So the input is taken by DDR input cells three times,
+6, 12 and 18 ns after CK rises, and RWDS chooses: if RWDS is already high at
+the first sample, the byte is at the second; otherwise at the third. It
+tolerates 0 to ~12 ns round trip. This is the HyperRAM's version of a data
+strobe -- like the 8086's /DEN telling the transceiver when the bus is
+valid, instead of counting ns from ALE.
+
+**A strict model first.** `psram_model.v` is not a friendly memory: it
+checks setup and hold on every capturing edge, CS# setup, the 150 us
+power-up wait and the 4 us maximum CS# low, and it randomises both the
+refresh collision and the data delay on every transaction. The controller's
+first version passed a friendly test and failed here (the CS# register's
+power-up 0 looked like a transaction start). The unit test ran 6000
+operations with path delays from 0 to 6 ns, and failed at 8 ns as the
+arithmetic said it would -- a failure in the predicted place is as useful
+as a pass.
+
+**Writes are posted.** /WR5 comes 3 ticks before /CAS5, the data is on the
+bus, and the next access to the bank is at least 70 ticks away; the
+controller takes the byte and the CPU never waits. A write-back buffer of
+one byte, like a 74LS373 holding the data while a slow device catches up.
+
+**Reset waits for the memory.** The CPU's reset is held until the PSRAM
+has had its 150 us and its configuration register write (latency 3,
+variable). On a TTL board: the power-on RC on /RESET made longer because one
+card needs time to wake.
+
+**The chip disagreed.** Every simulation passed -- unit test, testrom5,
+the real ROM, a .z80 load, the worst case -- and on the board the ROM found
+48K, games crashed and the sound was odd. Then, after a few reloads, the
+ROM found only 16K. The debugging went in rungs, each one a smaller and
+more direct instrument:
+
+1. *LEDs for each cause* (a diagnostic build): "request while busy" never,
+   "RWDS wrong at the sample" yes, "early sample" never, "double latency"
+   never. It looked like RWDS was not reaching the FPGA at all.
+2. *Counters on the serial port* (`psram_diag_uart.v`, pin 17, the same
+   USB cable): only 2 upper-RAM reads since power-up, RWDS never high in a
+   12-sample window. The ROM's RAM test had read 8000, got junk, and
+   decided the machine was 16K.
+3. *A test jig* (`psram_hwtest.v`, build `gowin_psram_test`): the
+   controller alone on the die, writing and reading all 32K, with a raw
+   trace of every pin sample in one read, CK kept running long. Nearly
+   every read was wrong -- but the double-latency counter moved, so RWDS
+   *did* arrive. The trace showed where: our command bytes on ticks 6-11,
+   RWDS first high on tick 17, two ticks after the controller had taken
+   its byte. A double-latency read: three CK cycles later still.
+
+    | read      | expected (2 + L) | measured | 3 + L |
+    |-----------|------------------|----------|-------|
+    | 1x        | cycle 5          | cycle 6  | 6     |
+    | 2x        | cycle 8          | cycle 9  | 9     |
+
+   "The chip has latency 4" would have given 6 and 10; only "data on cycle
+   3 + L" fits both rows, and reading CR0 back (8F E7, as written) confirmed
+   the chip was configured as intended. My cycle count was one short.
+   Writes were broken too: CS# went high before the die took the byte.
+   (The 48K the ROM found at first was luck: its RAM test writes the same
+   byte everywhere, so a stale byte from the bus still matched.)
+
+With the data one cycle later (`DOFS = 3`), the jig ran 15.8 million reads
+without an error, double-latency reads (0.05 %, as the reference author
+measured) included, and the Spectrum found 48K and ran its games with sound.
+
+The lesson is the one TTL designers learn with their first EPROM: **a
+model is only as right as your reading of the datasheet.** I wrote the
+controller and its "strict" model from the same understanding, so the
+model checked my arithmetic against itself; a thousand passing runs
+proved consistency, not truth. The cure is a measurement of the real part
+early -- the jig is 400 lines and built in two minutes -- before the
+machine is built on top of it. In TTL terms: put the memory card on the
+bench with a logic analyser before you plug it into the computer.
+
+A side lesson: a board that shows no LEDs and no picture with *any*
+bitstream is not a design bug. Here the USB bridge had come up in its
+own bootloader (`ffff:ffff BLIOT CDC Virtual ComPort` instead of the
+FT2232), so nothing configured the FPGA; plugging it in again fixed it.
+
+**Gowin quirks met this time:** an SDC rule that matches nothing is an
+*error* (TA2003), not a warning; two registers that always hold the same
+value are merged, so a rule naming the one that vanished breaks the build;
+and the controller's registers were found by no `get_regs` pattern at all --
+the read byte's path meets one clock without help, so it needs no rule.
+Fmax 82.3 MHz against 81, after two more multicycle rules (the SD
+bridge's port into the CPU, the 8255's control word into its bus latch):
+paths that had always been many-clock in fact, and had passed by luck of
+placement until the design grew.
+
 ---------------------------------------------------------------------------
 
 ## 8. Habits worth copying
@@ -1081,6 +1316,14 @@ protocol is not running.
 25. **Keep a correction out of the busy window.**  Realign, reload or reset
     a counter where nothing is reading it -- in blanking, not in the
     middle of a packet -- and don't correct what is already right.
+26. **Check that every timing exception matched.**  A multicycle or false
+    path that names nothing is silently ignored; read the exceptions
+    report, and keep one-clock paths (enables, edge detectors) out of the
+    multicycle ones (section 7.25).
+27. **After a clock change, re-measure every race; don't rescale it.**
+    A delay tuned against another edge keeps its meaning only if both
+    sides move together. Turn the race into a histogram (ticks from one
+    edge to the other) and read the margin as a number (section 7.25).
 
 ## 9. Glossary
 
@@ -1093,6 +1336,7 @@ protocol is not running.
 | clk_sys | our 135 MHz master clock; everything is sampled on it |
 | synchronous | all state changes on one clock's edges |
 | edge detect | `prev <= x; if (prev && !x) ...` -- sees a falling edge as data |
+| multicycle path | a timing constraint saying a path has N clocks to settle, because its result is used only every Nth clock (a clock enable) |
 | Kempston | the common Spectrum joystick interface: port 1F, bits 0-4 = right, left, down, up, fire, 1 = pressed |
 | data island | HDMI packets (audio, InfoFrames) sent in the blanking, between the syncs |
 | TERC4 | the 4-bit-to-10-bit code used inside data islands |

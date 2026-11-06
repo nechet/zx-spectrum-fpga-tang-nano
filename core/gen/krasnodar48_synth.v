@@ -86,7 +86,28 @@ module krasnodar48_synth (
     input  PC7_ext,
     // control lines only the FPGA models have (--model-input)
     input  rom_bank,
+    input  [7:0] psram_q,
+    input  psram_oe,
     // exported internal nets (--export)
+    output _RAS5_out,
+    output _CAS5_out,
+    output _WR5_out,
+    output MA0_out,
+    output D0_out,
+    output MA1_out,
+    output D1_out,
+    output MA2_out,
+    output D2_out,
+    output MA3_out,
+    output D3_out,
+    output MA4_out,
+    output D4_out,
+    output MA5_out,
+    output D5_out,
+    output MA6_out,
+    output D6_out,
+    output MA7_out,
+    output D7_out,
     output A8_out,
     output A9_out,
     output A10_out,
@@ -562,61 +583,61 @@ module krasnodar48_synth (
       .p14(A13), .p13(A6), .p4(MA7), .p7(MA0),
       .p9(MA2), .p12(MA4), .p8(1'b0), .p16(1'b1));
 
-  dram_x1 #(.ROWBITS(8)) U_D23 (   // D23 КР565РУ5Д
+  dram_x1 #(.LANE(7), .ROWBITS(8)) U_D23 (   // D23 КР565РУ5Д
       .p2(D7), .p3(_WR5), .p4(_RAS5), .p5(MA0),
       .p6(MA2), .p7(MA1), .p9(MA7), .p10(MA5),
       .p11(MA4), .p12(MA3), .p13(MA6), .p15(_CAS5),
       .p14(D7__d3), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(8)) U_D24 (   // D24 КР565РУ5Д
+  dram_x1 #(.LANE(6), .ROWBITS(8)) U_D24 (   // D24 КР565РУ5Д
       .p2(D6), .p3(_WR5), .p4(_RAS5), .p5(MA0),
       .p6(MA2), .p7(MA1), .p9(MA7), .p10(MA5),
       .p11(MA4), .p12(MA3), .p13(MA6), .p15(_CAS5),
       .p14(D6__d3), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(8)) U_D25 (   // D25 КР565РУ5Д
+  dram_x1 #(.LANE(5), .ROWBITS(8)) U_D25 (   // D25 КР565РУ5Д
       .p2(D5), .p3(_WR5), .p4(_RAS5), .p5(MA0),
       .p6(MA2), .p7(MA1), .p9(MA7), .p10(MA5),
       .p11(MA4), .p12(MA3), .p13(MA6), .p15(_CAS5),
       .p14(D5__d3), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(8)) U_D26 (   // D26 КР565РУ5Д
+  dram_x1 #(.LANE(4), .ROWBITS(8)) U_D26 (   // D26 КР565РУ5Д
       .p2(D4), .p3(_WR5), .p4(_RAS5), .p5(MA0),
       .p6(MA2), .p7(MA1), .p9(MA7), .p10(MA5),
       .p11(MA4), .p12(MA3), .p13(MA6), .p15(_CAS5),
       .p14(D4__d3), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(8)) U_D27 (   // D27 КР565РУ5Д
+  dram_x1 #(.LANE(3), .ROWBITS(8)) U_D27 (   // D27 КР565РУ5Д
       .p2(D3), .p3(_WR5), .p4(_RAS5), .p5(MA0),
       .p6(MA2), .p7(MA1), .p9(MA7), .p10(MA5),
       .p11(MA4), .p12(MA3), .p13(MA6), .p15(_CAS5),
       .p14(D3__d3), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(8)) U_D28 (   // D28 КР565РУ5Д
+  dram_x1 #(.LANE(2), .ROWBITS(8)) U_D28 (   // D28 КР565РУ5Д
       .p2(D2), .p3(_WR5), .p4(_RAS5), .p5(MA0),
       .p6(MA2), .p7(MA1), .p9(MA7), .p10(MA5),
       .p11(MA4), .p12(MA3), .p13(MA6), .p15(_CAS5),
       .p14(D2__d3), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(8)) U_D29 (   // D29 КР565РУ5Д
+  dram_x1 #(.LANE(1), .ROWBITS(8)) U_D29 (   // D29 КР565РУ5Д
       .p2(D1), .p3(_WR5), .p4(_RAS5), .p5(MA0),
       .p6(MA2), .p7(MA1), .p9(MA7), .p10(MA5),
       .p11(MA4), .p12(MA3), .p13(MA6), .p15(_CAS5),
       .p14(D1__d3), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(8)) U_D30 (   // D30 КР565РУ5Д
+  dram_x1 #(.LANE(0), .ROWBITS(8)) U_D30 (   // D30 КР565РУ5Д
       .p2(D0), .p3(_WR5), .p4(_RAS5), .p5(MA0),
       .p6(MA2), .p7(MA1), .p9(MA7), .p10(MA5),
       .p11(MA4), .p12(MA3), .p13(MA6), .p15(_CAS5),
       .p14(D0__d3), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
   cd4011 U_D31 (   // D31 К561ЛА7
       .p1(vid_vsync_n), .p2(vid_vsync_n), .p5(N_124), .p6(N_125),
@@ -691,61 +712,61 @@ module krasnodar48_synth (
       .p3(_KGI), .p4(n_14A), .p10(N_138), .p11(n_12A),
       .p7(1'b0), .p14(1'b1));
 
-  dram_x1 #(.ROWBITS(7)) U_D42 (   // D42 КР565РУ6Г
+  dram_x1 #(.LANE(7), .ROWBITS(7)) U_D42 (   // D42 КР565РУ6Г
       .p2(D7), .p3(_WR6), .p4(_RAS6), .p5(VA0),
       .p6(VA2), .p7(VA1), .p9(1'b0), .p10(VA5),
       .p11(VA4), .p12(VA3), .p13(VA6), .p15(_CAS6),
       .p14(VD7), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(7)) U_D43 (   // D43 КР565РУ6Г
+  dram_x1 #(.LANE(6), .ROWBITS(7)) U_D43 (   // D43 КР565РУ6Г
       .p2(D6), .p3(_WR6), .p4(_RAS6), .p5(VA0),
       .p6(VA2), .p7(VA1), .p9(1'b0), .p10(VA5),
       .p11(VA4), .p12(VA3), .p13(VA6), .p15(_CAS6),
       .p14(VD6), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(7)) U_D44 (   // D44 КР565РУ6Г
+  dram_x1 #(.LANE(5), .ROWBITS(7)) U_D44 (   // D44 КР565РУ6Г
       .p2(D5), .p3(_WR6), .p4(_RAS6), .p5(VA0),
       .p6(VA2), .p7(VA1), .p9(1'b0), .p10(VA5),
       .p11(VA4), .p12(VA3), .p13(VA6), .p15(_CAS6),
       .p14(VD5), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(7)) U_D45 (   // D45 КР565РУ6Г
+  dram_x1 #(.LANE(4), .ROWBITS(7)) U_D45 (   // D45 КР565РУ6Г
       .p2(D4), .p3(_WR6), .p4(_RAS6), .p5(VA0),
       .p6(VA2), .p7(VA1), .p9(1'b0), .p10(VA5),
       .p11(VA4), .p12(VA3), .p13(VA6), .p15(_CAS6),
       .p14(VD4), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(7)) U_D46 (   // D46 КР565РУ6Г
+  dram_x1 #(.LANE(3), .ROWBITS(7)) U_D46 (   // D46 КР565РУ6Г
       .p2(D3), .p3(_WR6), .p4(_RAS6), .p5(VA0),
       .p6(VA2), .p7(VA1), .p9(1'b0), .p10(VA5),
       .p11(VA4), .p12(VA3), .p13(VA6), .p15(_CAS6),
       .p14(VD3), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(7)) U_D47 (   // D47 КР565РУ6Г
+  dram_x1 #(.LANE(2), .ROWBITS(7)) U_D47 (   // D47 КР565РУ6Г
       .p2(D2), .p3(_WR6), .p4(_RAS6), .p5(VA0),
       .p6(VA2), .p7(VA1), .p9(1'b0), .p10(VA5),
       .p11(VA4), .p12(VA3), .p13(VA6), .p15(_CAS6),
       .p14(VD2), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(7)) U_D48 (   // D48 КР565РУ6Г
+  dram_x1 #(.LANE(1), .ROWBITS(7)) U_D48 (   // D48 КР565РУ6Г
       .p2(D1), .p3(_WR6), .p4(_RAS6), .p5(VA0),
       .p6(VA2), .p7(VA1), .p9(1'b0), .p10(VA5),
       .p11(VA4), .p12(VA3), .p13(VA6), .p15(_CAS6),
       .p14(VD1), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
-  dram_x1 #(.ROWBITS(7)) U_D49 (   // D49 КР565РУ6Г
+  dram_x1 #(.LANE(0), .ROWBITS(7)) U_D49 (   // D49 КР565РУ6Г
       .p2(D0), .p3(_WR6), .p4(_RAS6), .p5(VA0),
       .p6(VA2), .p7(VA1), .p9(1'b0), .p10(VA5),
       .p11(VA4), .p12(VA3), .p13(VA6), .p15(_CAS6),
       .p14(VD0), .p8(1'b1), .p16(1'b0),
-      .clk_sys(clk_sys));
+      .clk_sys(clk_sys), .psram_q(psram_q), .psram_oe(psram_oe));
 
   cd4001 U_D50 (   // D50 К561ЛЕ5
       .p1(N_140), .p2(N_137), .p5(N_134), .p6(N_141),
@@ -929,6 +950,25 @@ module krasnodar48_synth (
   gate_pulse_sync PULSE_N_116 (.clk_sys(clk_sys), .a(N_137), .y(N_116));
 
   // ---------------------------------- exported nets (--export)
+  assign _RAS5_out = _RAS5;
+  assign _CAS5_out = _CAS5;
+  assign _WR5_out = _WR5;
+  assign MA0_out = MA0;
+  assign D0_out = D0;
+  assign MA1_out = MA1;
+  assign D1_out = D1;
+  assign MA2_out = MA2;
+  assign D2_out = D2;
+  assign MA3_out = MA3;
+  assign D3_out = D3;
+  assign MA4_out = MA4;
+  assign D4_out = D4;
+  assign MA5_out = MA5;
+  assign D5_out = D5;
+  assign MA6_out = MA6;
+  assign D6_out = D6;
+  assign MA7_out = MA7;
+  assign D7_out = D7;
   assign A8_out = A8;
   assign A9_out = A9;
   assign A10_out = A10;

@@ -128,14 +128,23 @@ begin
     begin
         frame_counter <= 8'd0;
     end
-    else if (packet_pixel_counter == 5'd31 && packet_type == 8'h02) // Keep track of current IEC 60958 frame
+    // timing: counted as the packet is replaced (packet_enable, which
+    // hdmi_audio_out.sv raises one pixel early, or the field's end), not on
+    // its pixel 31 -- once per audio packet either way
+    else if ((packet_enable || video_field_end) && packet_type == 8'h02) // Keep track of current IEC 60958 frame
     begin
         frame_counter = frame_counter + 8'd4;
         if (frame_counter >= 8'd192)
             frame_counter = frame_counter - 8'd192;
     end
 end
-audio_sample_packet #(.SAMPLING_FREQUENCY(SAMPLING_FREQUENCY), .WORD_LENGTH({{WORD_LENGTH[0], WORD_LENGTH[1], WORD_LENGTH[2]}, WORD_LENGTH_LIMIT})) audio_sample_packet (.frame_counter(frame_counter), .valid_bit('{2'b00, 2'b00, 2'b00, 2'b00}), .user_data_bit('{2'b00, 2'b00, 2'b00, 2'b00}), .audio_sample_word(audio_sample_word_packet), .audio_sample_word_present(audio_sample_word_present_packet), .header(h_asp), .sub(s_asp));
+// iverilog: a named all-zero array, not an assignment pattern on the ports
+logic [1:0] zero_bits [3:0];
+assign zero_bits[0] = 2'b00;
+assign zero_bits[1] = 2'b00;
+assign zero_bits[2] = 2'b00;
+assign zero_bits[3] = 2'b00;
+audio_sample_packet #(.SAMPLING_FREQUENCY(SAMPLING_FREQUENCY), .WORD_LENGTH({{WORD_LENGTH[0], WORD_LENGTH[1], WORD_LENGTH[2]}, WORD_LENGTH_LIMIT})) audio_sample_packet (.frame_counter(frame_counter), .valid_bit(zero_bits), .user_data_bit(zero_bits), .audio_sample_word(audio_sample_word_packet), .audio_sample_word_present(audio_sample_word_present_packet), .header(h_asp), .sub(s_asp));
 
 
 auxiliary_video_information_info_frame #(

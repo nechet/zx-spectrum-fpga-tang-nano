@@ -84,7 +84,20 @@ module hdmi_audio_out #(
   localparam DI_END   = DI_START + NUM_PACKETS * 32;   // one past the last
 
   wire data_island_now = NUM_PACKETS > 0 && cx >= DI_START && cx < DI_END;
-  wire packet_enable   = data_island_now && cx[4:0] == DI_START[4:0];   // each packet's first pixel
+  // Each packet is chosen one pixel before it starts (upstream: on its first
+  // pixel), so that the chosen header and subpackets can be registered (below)
+  // before the assembler reads them.  The choice, then the ECC, each get a
+  // whole pixel clock: together they need ~17 ns, more than 81 MHz allows on
+  // the Tang Nano 9K.
+  // packet_enable is a register, set from the pixel before (cx counts up by
+  // one a clock through the blanking), so the picker's ~50 enabled registers
+  // hang off a flip-flop rather than off a comparison of the raster counter.
+  localparam DI_PICK = DI_START - 1;
+  localparam DI_PICK_M1 = DI_PICK - 1;
+  reg packet_enable = 1'b0;
+  always @(posedge clk_pixel)
+    packet_enable <= NUM_PACKETS > 0 && cx >= DI_PICK_M1 && cx < DI_END - 2 &&
+                     cx[4:0] == DI_PICK_M1[4:0];
 
   reg data_island_guard = 1'b0, data_island_preamble = 1'b0, data_island_period = 1'b0;
   reg data_island_first = 1'b0;
@@ -97,11 +110,34 @@ module hdmi_audio_out #(
   end
 
   // --- the packets ------------------------------------------------------------
-  wire [23:0] header;
-  wire [55:0] sub [3:0];
+  wire [23:0] header_pick;                  // the picker's choice ...
+  wire [55:0] sub_pick [3:0];
+  // ... loaded into shift registers on the pixel before the packet starts,
+  // then shifted on, so the assembler always finds this pixel's bits at the
+  // bottom: one bit of the header, two of each subpacket.  (Upstream's
+  // assembler indexed them by its counter; see third_party/hdmi/PROVENANCE.md.)
+  reg  [23:0] header = 24'd0;
+  reg  [55:0] sub [3:0];
+  reg         load_pkt = 1'b0;
+  always @(posedge clk_pixel) begin
+    load_pkt <= packet_enable;              // the pixel after the choice
+    if (load_pkt) begin
+      header <= header_pick;
+      sub[0] <= sub_pick[0]; sub[1] <= sub_pick[1];   // iverilog: element by element
+      sub[2] <= sub_pick[2]; sub[3] <= sub_pick[3];
+    end else begin
+      header <= header >> 1;
+      sub[0] <= sub[0] >> 2; sub[1] <= sub[1] >> 2;
+      sub[2] <= sub[2] >> 2; sub[3] <= sub[3] >> 2;
+    end
+  end
   wire [4:0]  packet_pixel_counter;
   wire [8:0]  packet_data;
-  wire        video_field_end = (cx == H_ACTIVE - 1) && (cy == V_ACTIVE - 1);
+  // registered from the pixel before, like packet_enable: it resets the
+  // picker's registers
+  reg         video_field_end = 1'b0;
+  always @(posedge clk_pixel)
+    video_field_end <= (cx == H_ACTIVE - 2) && (cy == V_ACTIVE - 1);
   wire [15:0] audio_sample_word [1:0];
   assign audio_sample_word[0] = audio_l;
   assign audio_sample_word[1] = audio_r;
@@ -119,7 +155,7 @@ module hdmi_audio_out #(
       .clk_pixel (clk_pixel), .clk_audio (clk_audio), .reset (reset),
       .video_field_end (video_field_end), .packet_enable (packet_enable),
       .packet_pixel_counter (packet_pixel_counter),
-      .audio_sample_word (audio_sample_word), .header (header), .sub (sub));
+      .audio_sample_word (audio_sample_word), .header (header_pick), .sub (sub_pick));
 
   packet_assembler assembler (
       .clk_pixel (clk_pixel), .reset (reset), .data_island_period (data_island_period),

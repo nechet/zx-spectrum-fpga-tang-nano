@@ -6,9 +6,14 @@ building and using it, see the [top-level README](../README.md). How
 everything works, explained from the logic-chip side:
 [LEARNING.md](LEARNING.md).
 
+The Tang Nano 9K builds ([`../tang9k/`](../tang9k/README.md)) use the
+loader, keyboard, sound and test files in this folder as they are; the
+options only the 9K sets (`BOARD_81`, `ROM_BANK1_SMALL`, `RAM_PSRAM`) are
+off in every build here.
+
 ## Builds
 
-Gowin projects, built with `./build.sh <folder>` (or `../scripts/build.sh`).
+Gowin projects, built with `./build.sh <folder>` (or `../scripts-20k/build.sh`).
 `build.sh` fails on any Gowin `ERROR` or a stale `.fs`, and prints the
 timing summary, BSRAM use and every pin's lock state.
 
@@ -135,7 +140,7 @@ to the header, which is why they are the default.
 ## Tests
 
 Icarus Verilog (the system's `iverilog`). Run from this folder, or through
-`../scripts/test.sh`.
+`../scripts-20k/test.sh`.
 
 | script | what it checks |
 |---|---|
@@ -149,7 +154,7 @@ Icarus Verilog (the system's `iverilog`). Run from this folder, or through
 | `tb_ram48.sh`, `tb_kbd_sys.sh` | the upper 32 KB of RAM; the keyboard path |
 | `tb_fat.v`, `tb_sd*.v` | the FAT32 reader and the SD card reader on their own |
 
-The whole-board tests need the ROM (`../scripts/get_rom.sh`) and z80asm.
+The whole-board tests need the ROM (`../scripts-20k/get_rom.sh`) and z80asm.
 `mk_fat_image.py` builds the test card image (random filler and the
 project's own test programs: `mk_testz80.py`'s snapshot, `mk_testtap.py`'s
 tape).
@@ -167,6 +172,7 @@ tape).
 | `sdmenu.asm`, `sdrom0.asm`, `sdbanks.inc`, `mk_sdrom.py` | the SD ROM and its build |
 | `sd_card_model.v`, `mk_fat_image.py`, `mk_testtap.py`, `mk_testz80.py`, `testsnap.asm` | the SD card model and the test card's contents |
 | `tb_*.v`, `tb_*.sh` | testbenches (above) |
+| `upper_scoreboard.vh` | a reference copy of the upper 32 KB that checks every CPU read from it (`SCOREBOARD`; the 9K's PSRAM tests) |
 | `testrom4.asm`, `testrom5.asm` | test ROMs: keyboard, upper 32 KB of RAM |
 | `hdmi720_test.v`, `hdmi720_audio_test.v`, `pll_371.v` | 720p test pattern and sound test |
 | `pll_28.v`, `pll_140.v` | optional exact 14 MHz clocking (`CLK14`): 50.08 Hz, two PLLs; not used by the builds |
