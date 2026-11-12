@@ -3,7 +3,7 @@
 [English version](README.md)
 
 **«Краснодар-48»** — советский клон ZX Spectrum 48K. Этот проект запускает
-эту плату на ПЛИС Sipeed **Tang Nano 20K** или на меньшей **Tang Nano 9K** —
+эту плату на ПЛИС Sipeed **[Tang Nano 20K](https://wiki.sipeed.com/hardware/en/tang/tang-nano-20k/nano-20k.html)** или на меньшей **[Tang Nano 9K](https://wiki.sipeed.com/hardware/en/tang/Tang-Nano-9K/Nano-9K.html)** —
 не как эмулятор Спектрума, а как саму плату. Её схема (автор Роман Бойков,
 [romychs/Krasnodar-48](https://github.com/romychs/Krasnodar-48))
 переведена микросхема за микросхемой в Verilog-нетлист: логика ТТЛ и КМОП,
@@ -41,7 +41,7 @@
 
 | | |
 |---|---|
-| плата | Sipeed Tang Nano 20K или Tang Nano 9K |
+| плата | Sipeed [Tang Nano 20K](https://wiki.sipeed.com/hardware/en/tang/tang-nano-20k/nano-20k.html) или [Tang Nano 9K](https://wiki.sipeed.com/hardware/en/tang/Tang-Nano-9K/Nano-9K.html) |
 | экран | HDMI-монитор или телевизор. Сигнал 1280x720 при 48,3 Гц (или 720x576 при 48,3 Гц) — синхронизирован с кадром Спектрума, поэтому частота нестандартная. Большинство мониторов его принимают. |
 | клавиатура | PS/2-клавиатура, **работающая от 3,3 В**, или USB-клавиатура + переходник на Waveshare RP2040-Zero ([готовая прошивка и схема](#переходник-usb-клавиатуры)), на выводах разъёма **73** (CLK) и **74** (DATA); на 9K — выводы **31** и **32** |
 | карта | microSD, FAT32 |

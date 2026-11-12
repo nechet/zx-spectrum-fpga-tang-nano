@@ -1,6 +1,6 @@
 # Krasnodar-48 on the Tang Nano 9K: technical notes
 
-The Tang Nano 9K design (GW1NR-LV9QN88PC6/I5, GW1N-9C). The machine is
+The [Tang Nano 9K](https://wiki.sipeed.com/hardware/en/tang/Tang-Nano-9K/Nano-9K.html) design (GW1NR-LV9QN88PC6/I5, GW1N-9C). The machine is
 the Tang Nano 20K's: 720p HDMI with sound, the PS/2 keyboard, the microSD
 loader and its menu, all from [`../tang20k/`](../tang20k/README.md) and
 [`../core/`](../core/). This folder holds only what the smaller chip needs

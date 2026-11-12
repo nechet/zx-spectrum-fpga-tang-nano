@@ -1,6 +1,6 @@
 # Krasnodar-48 on the Tang Nano 20K: technical notes
 
-The Tang Nano 20K design (GW2AR-LV18QN88C8/I7, GW2A-18C): video, sound,
+The [Tang Nano 20K](https://wiki.sipeed.com/hardware/en/tang/tang-nano-20k/nano-20k.html) design (GW2AR-LV18QN88C8/I7, GW2A-18C): video, sound,
 keyboard and SD card loader around the board netlist in `../core`. For
 building and using it, see the [top-level README](../README.md). How
 everything works, explained from the logic-chip side:

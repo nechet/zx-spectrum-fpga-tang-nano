@@ -3,8 +3,8 @@
 [Русская версия](README.ru.md)
 
 The **Krasnodar-48** is a Soviet-era ZX Spectrum 48K clone. This project
-runs that board on a Sipeed **Tang Nano 20K** FPGA, or on the smaller
-**Tang Nano 9K**, not as a Spectrum emulator but as the board itself. Its schematic (by Roman Boykov,
+runs that board on a Sipeed **[Tang Nano 20K](https://wiki.sipeed.com/hardware/en/tang/tang-nano-20k/nano-20k.html)** FPGA, or on the smaller
+**[Tang Nano 9K](https://wiki.sipeed.com/hardware/en/tang/Tang-Nano-9K/Nano-9K.html)**, not as a Spectrum emulator but as the board itself. Its schematic (by Roman Boykov,
 [romychs/Krasnodar-48](https://github.com/romychs/Krasnodar-48)) is
 converted chip by chip into a Verilog netlist: the TTL and CMOS logic,
 the DRAM timing made by RC delay lines, the 8255, the ROM, and a Z80 core
@@ -42,7 +42,7 @@ keyboard goes on pins 31 (CLK) and 32 (DATA). Details:
 
 | | |
 |---|---|
-| board | Sipeed Tang Nano 20K, or Tang Nano 9K |
+| board | Sipeed [Tang Nano 20K](https://wiki.sipeed.com/hardware/en/tang/tang-nano-20k/nano-20k.html), or [Tang Nano 9K](https://wiki.sipeed.com/hardware/en/tang/Tang-Nano-9K/Nano-9K.html) |
 | display | an HDMI monitor or TV. The output is 1280x720 at 48.3 Hz (or 720x576 at 48.3 Hz): frame-locked to the Spectrum, so not a standard rate. Most monitors accept it. |
 | keyboard | a PS/2 keyboard **that works at 3.3 V**, or a USB keyboard + a Waveshare RP2040-Zero as an adapter ([`ps2pico/`](ps2pico/): ready-made firmware, wiring), on header pins **73** (CLK) and **74** (DATA); on the 9K, pins **31** and **32** |
 | card | a microSD card, FAT32 |
